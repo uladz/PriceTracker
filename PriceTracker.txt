@@ -1,0 +1,37 @@
+## Title: |cEFEBBEPrice Tracker Updated|r 2.6.2
+## Author: Barvazon & |cEFEBBEGarkin|r
+## Version: 2.6.2
+## Description: |cEFEBBEPrice Tracker|r is a simple addon that scans all your guild stores and tracks items and their prices.
+## APIVersion: 100011
+## SavedVariables: PriceTrackerSettings
+## OptionalDependsOn: LibAddonMenu-2.0
+
+lib/LibStub/LibStub.lua
+lib/LibAddonMenu-2.0/LibAddonMenu-2.0.lua
+lib/LibAddonMenu-2.0/controls/buttons.lua
+lib/LibAddonMenu-2.0/controls/checkbox.lua
+lib/LibAddonMenu-2.0/controls/colorpicker.lua
+lib/LibAddonMenu-2.0/controls/custom.lua
+lib/LibAddonMenu-2.0/controls/description.lua
+lib/LibAddonMenu-2.0/controls/dropdown.lua
+lib/LibAddonMenu-2.0/controls/editbox.lua
+lib/LibAddonMenu-2.0/controls/header.lua
+lib/LibAddonMenu-2.0/controls/panel.lua
+lib/LibAddonMenu-2.0/controls/slider.lua
+lib/LibAddonMenu-2.0/controls/submenu.lua
+lib/LibAddonMenu-2.0/controls/texture.lua
+
+PriceTracker.xml
+PriceTracker.lua
+PriceTrackerMenu.lua
+PriceTrackerEnchantingTable.lua
+MathUtils.lua
+
+
+; This Add-on is not created by, affiliated with or sponsored by ZeniMax
+; Media Inc. or its affiliates. The Elder Scrolls® and related logos are
+; registered trademarks or trademarks of ZeniMax Media Inc. in the United
+; States and/or other countries. All rights reserved.
+;
+; You can read the full terms at:
+; https://account.elderscrollsonline.com/add-on-terms

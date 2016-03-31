@@ -1,0 +1,149 @@
+Changelog
+
+v2.6.2 ~Garkin
+ - updated API version
+
+v2.6.1 ~Garkin
+ - fixed issue which can lead to corrupted item data
+ - updated LibAddonMenu-2.0
+
+v2.6.0 ~Garkin
+ - added stop scan button
+
+v2.5.9 ~Garkin
+ - added prices to the loot window tooltip
+
+v2.5.8 ~Garkin
+ - fixed UI error when scanning prices at kiosk which is rented by your guild
+
+v2.5.7 ~Garkin
+ - better handling of guild ID's
+ - removed redundant function for AwesomeGuildStore (it's not necessary, ASG it does automatically)
+
+v2.5.6 ~Garkin
+ - prices are now saved automatically when search result is received
+
+v2.5.5 ~Garkin
+ - better checking when you can scan for prices (button is disabled when search is on cooldown)
+
+v2.5.4 ~Garkin
+ - added support for AwesomeGuildStore guild selector
+
+v2.5.3 ~Garkin
+- addon now checks item quality when searching for matches
+- removed redundant entries in saved variables, so it should be 20-25% smaller
+
+v2.5.2 ~Garkin
+ - corrected guild name in saved data when using guild trader (kiosk) 
+
+v2.5.1 ~Garkin
+ - fixed tooltip for repair window
+
+v2.5 ~Garkin
+ - Updated LibAddonMenu-2.0 (r16)
+ - Updated LibStub (r2)
+ - Moved "Scan Price" button so it will not interfere with AwesomeGuildStore (this is used from "Price Tracker (revised by) Draconeran")
+ - Improved tooltip format   
+ - Changed Weighted Average formula to put more weight on recent prices (formula is adapted from Khaibit's Shopkeeper)
+ - Added simple Average formula
+ - Fixed code for Most Frequently Used formula
+ - Added slider to choose how long you want keep prices in history (default value is 90 days)
+ - Fixed OnLinkClicked handler
+ - Added tooltip information to slottable items list (ZO_QuickSlotListcontents)
+ - Added tooltip information to charge/enchant/research item lists (ZO_ListDialog?ListContents)
+ - Removed debug message for quest items (ZO_PlayerInventoryQuestContents)
+ - Slash command /clean now accepts argument "days", if argument is not specified, default value is 30. Example: "/clean 60" will remove all prices which are older then 60 days. 
+
+v2.4
+ - Support API version 100010
+ 
+v2.3
+ - Removed sneaky debug message
+
+v2.2
+ - Support API version 100009
+ - Added optional sound notification when search is complete
+
+v2.1
+ - Fixed crashing error when a tabard was showing in the guild store
+
+v2.0
+ - Support API version 100008
+ - Preserve price history from previous API version
+
+v1.9
+ - Fixed bug causing ESO to crash when hovering over a guild store listing item
+ - Cleaning stale items now works as expected
+ - Item levels are now calculated as expected
+ - Fixed variable leak
+
+v1.8
+ - 'Scan Prices' button is enabled only after the search cooldown is reached
+
+v1.7
+ - Indexing items by itemId rather than name
+ - Using item level as a sub-index
+
+v1.6
+ - Improved search algorithm to avoid trading house error messages
+ - Properly changing guilds between searches to avoid error messages
+
+v1.5
+ - Support API version 100007
+ - Using LibAddonMenu 2.0 
+
+v1.4
+ - Fixed LibStub typo
+ - Added pricing info on item tooltip when item link is clicked in chat window
+  
+v1.3
+ - Added option to view prices from all guilds or a specific guild
+
+v1.2
+ - Fixed a bug where enchanting an item would throw an exception
+
+v1.1
+ - Added some color
+ - Added price info to enchanting tooltip
+ - Added option to hide pricing info unless a key is pressed
+ - Added more information about the different algorithms
+
+v1.0
+ - Doing some housekeeping and removing items that cannot be parsed, in order to avoid errors when trying to calculate suggested price
+ 
+v0.9
+ - More bug fixes
+ - Fixed Median and Mode methods
+ - Correctly calculating median value per item, instead of per stack
+
+v0.8
+ - Fixed a typo when calculating a weighted average
+
+v0.7
+ - Added an experimental way to clean stale prices in the database.  Use it at your own risk, as it has not been debugged yet.
+ - Suggested price shows which guild it was found in, if possible.
+ - Reformatted the price table
+ - Minor improvements to code quality
+
+v0.6
+ - Removed unnecessary debug information
+
+v0.5
+ - Fixed loot window error
+
+ v0.4
+ - Added missing default values
+
+v0.3
+ - Added settings menu
+ - Providing three ways to calculate the suggested price: weighted average (default), median, and mode (most popular value)
+ - Number of times item seen in stores can be turned off
+ - Min / max can be turned off
+ 
+v0.2
+ - Fixed 'Research Trait from Item' window error
+ - Display integers, ignore fractions
+ - Added min / max prices
+ - Suggested prices per item and per stack are displayed in separate lines
+ - Added number of times seen in guild stores
+ - Minor cosmetic and code fixes
