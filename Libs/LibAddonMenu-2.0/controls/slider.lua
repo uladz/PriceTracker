@@ -1,21 +1,22 @@
 --[[sliderData = {
 	type = "slider",
-	name = "My Slider",
-	tooltip = "Slider's tooltip text.",
+	name = "My Slider", -- or string id or function returning a string
+	getFunc = function() return db.var end,
+	setFunc = function(value) db.var = value doStuff() end,
 	min = 0,
 	max = 20,
 	step = 1,	--(optional)
-	getFunc = function() return db.var end,
-	setFunc = function(value) db.var = value doStuff() end,
+	decimals = 0, --(optional)
+	tooltip = "Slider's tooltip text.", -- or string id or function returning a string (optional)
 	width = "full",	--or "half" (optional)
 	disabled = function() return db.someBooleanSetting end,	--or boolean (optional)
-	warning = "Will need to reload the UI.",	--(optional)
-	default = defaults.var,	--(optional)
-	reference = "MyAddonSlider"	--(optional) unique global reference to control
+	warning = "Will need to reload the UI.",	-- or string id or function returning a string (optional)
+	default = defaults.var,	-- default value or function that returns the default value (optional)
+	reference = "MyAddonSlider"	-- unique global reference to control (optional)
 }	]]
 
 
-local widgetVersion = 6
+local widgetVersion = 9
 local LAM = LibStub("LibAddonMenu-2.0")
 if not LAM:RegisterWidget("slider", widgetVersion) then return end
 
@@ -50,7 +51,7 @@ end
 
 local function UpdateValue(control, forceDefault, value)
 	if forceDefault then	--if we are forcing defaults
-		value = control.data.default
+		value = LAM.util.GetDefaultValue(control.data.default)
 		control.data.setFunc(value)
 	elseif value and value >= control.data.min and value <= control.data.max then
 		control.data.setFunc(value)
@@ -68,39 +69,18 @@ end
 
 
 function LAMCreateControl.slider(parent, sliderData, controlName)
-	local control = wm:CreateControl(controlName or sliderData.reference, parent.scroll or parent, CT_CONTROL)
-	local isHalfWidth = sliderData.width == "half"
-	if isHalfWidth then
-		control:SetDimensions(250, 55)
-	else
-		control:SetDimensions(510, 40)
-	end
-	control:SetMouseEnabled(true)
-	--control.tooltipText = sliderData.tooltip
-	control:SetHandler("OnMouseEnter", ZO_Options_OnMouseEnter)
-	control:SetHandler("OnMouseExit", ZO_Options_OnMouseExit)
-
-	control.label = wm:CreateControl(nil, control, CT_LABEL)
-	local label = control.label
-	label:SetFont("ZoFontWinH4")
-	label:SetDimensions(isHalfWidth and 250 or 300, 26)
-	label:SetWrapMode(TEXT_WRAP_MODE_ELLIPSIS)
-	label:SetAnchor(isHalfWidth and TOPLEFT or LEFT)
-	label:SetText(sliderData.name)
+	local control = LAM.util.CreateLabelAndContainerControl(parent, sliderData, controlName)
 
 	--skipping creating the backdrop...  Is this the actual slider texture?
-	control.slider = wm:CreateControl(nil, control, CT_SLIDER)
+	control.slider = wm:CreateControl(nil, control.container, CT_SLIDER)
 	local slider = control.slider
-	slider:SetDimensions(190, 14)
-	if isHalfWidth then
-		slider:SetAnchor(TOPRIGHT, label, BOTTOMRIGHT, -5, 2)
-	else
-		slider:SetAnchor(RIGHT, control, RIGHT, -5, -5)
-	end
+	slider:SetAnchor(TOPLEFT)
+	slider:SetAnchor(TOPRIGHT)
+	slider:SetHeight(14)
 	slider:SetMouseEnabled(true)
 	slider:SetOrientation(ORIENTATION_HORIZONTAL)
 	--put nil for highlighted texture file path, and what look to be texture coords
-	slider:SetThumbTexture("EsoUI\\Art\\Miscellaneous\\scrollbox_elevator.dds", "EsoUI\\Art\\Miscellaneous\\scrollbox_elevator_disabled.dds", nil, 8, 16) 
+	slider:SetThumbTexture("EsoUI\\Art\\Miscellaneous\\scrollbox_elevator.dds", "EsoUI\\Art\\Miscellaneous\\scrollbox_elevator_disabled.dds", nil, 8, 16)
 	local minValue = sliderData.min
 	local maxValue = sliderData.max
 	slider:SetMinMax(minValue, maxValue)
@@ -132,8 +112,8 @@ function LAMCreateControl.slider(parent, sliderData, controlName)
 	control.slidervalue = wm:CreateControlFromVirtual(nil, control.slidervalueBG, "ZO_DefaultEditForBackdrop")
 	local slidervalue = control.slidervalue
 	slidervalue:ClearAnchors()
-	slidervalue:SetAnchor(TOPLEFT, slidervaluebg, TOPLEFT, 3, 1)
-	slidervalue:SetAnchor(BOTTOMRIGHT, slidervaluebg, BOTTOMRIGHT, -3, -1)
+	slidervalue:SetAnchor(TOPLEFT, control.slidervalueBG, TOPLEFT, 3, 1)
+	slidervalue:SetAnchor(BOTTOMRIGHT, control.slidervalueBG, BOTTOMRIGHT, -3, -1)
 	slidervalue:SetTextType(TEXT_TYPE_NUMERIC)
 	slidervalue:SetFont("ZoFontGameSmall")
 	slidervalue:SetHandler("OnEscape", function(self)
@@ -144,31 +124,34 @@ function LAMCreateControl.slider(parent, sliderData, controlName)
 			self:LoseFocus()
 			control:UpdateValue(false, tonumber(self:GetText()))
 		end)
-
+	local function RoundDecimalToPlace(d, place)
+		return tonumber(string.format("%." .. tostring(place) .. "f", d))
+	end
 	local range = maxValue - minValue
 	slider:SetValueStep(sliderData.step or 1)
 	slider:SetHandler("OnValueChanged", function(self, value, eventReason)
 			if eventReason == EVENT_REASON_SOFTWARE then return end
-			self:SetValue(value)	--do we actually need this line?
-			slidervalue:SetText(value)	
+			local new_value = sliderData.decimals and RoundDecimalToPlace(value, sliderData.decimals) or value
+			self:SetValue(new_value)	--do we actually need this line?
+			slidervalue:SetText(new_value)
 		end)
 	slider:SetHandler("OnSliderReleased", function(self, value)
 			--sliderData.setFunc(value)
-			control:UpdateValue(false, value)	--does this work here instead?
+			local new_value = sliderData.decimals and RoundDecimalToPlace(value, sliderData.decimals) or value
+			control:UpdateValue(false, new_value)	--does this work here instead?
+		end)
+	slider:SetHandler("OnMouseWheel", function(self, value)
+			local new_value = (tonumber(slidervalue:GetText()) or sliderData.min or 0) + ((sliderData.step or 1) * value)
+			control:UpdateValue(false, new_value)
 		end)
 
 	if sliderData.warning then
 		control.warning = wm:CreateControlFromVirtual(nil, control, "ZO_Options_WarningIcon")
 		control.warning:SetAnchor(RIGHT, slider, LEFT, -5, 0)
-		--control.warning.tooltipText = sliderData.warning
-		control.warning.data = {tooltipText = sliderData.warning}
+		control.warning.data = {tooltipText = LAM.util.GetStringFromValue(sliderData.warning)}
 	end
 
-	control.panel = parent.panel or parent	--if this is in a submenu, panel is the submenu's parent
-	control.data = sliderData
-	control.data.tooltipText = sliderData.tooltip
-
-	if sliderData.disabled then
+	if sliderData.disabled ~= nil then
 		control.UpdateDisabled = UpdateDisabled
 		control:UpdateDisabled()
 	end

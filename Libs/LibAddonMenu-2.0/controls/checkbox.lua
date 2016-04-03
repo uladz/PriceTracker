@@ -1,18 +1,18 @@
 --[[checkboxData = {
 	type = "checkbox",
-	name = "My Checkbox",
-	tooltip = "Checkbox's tooltip text.",
+	name = "My Checkbox", -- or string id or function returning a string
 	getFunc = function() return db.var end,
 	setFunc = function(value) db.var = value doStuff() end,
-	width = "full",	--or "half" (optional)
+	tooltip = "Checkbox's tooltip text.", -- or string id or function returning a string (optional)
+	width = "full", -- or "half" (optional)
 	disabled = function() return db.someBooleanSetting end,	--or boolean (optional)
-	warning = "Will need to reload the UI.",	--(optional)
-	default = defaults.var,	--(optional)
-	reference = "MyAddonCheckbox"	--(optional) unique global reference to control
+	warning = "Will need to reload the UI.", -- or string id or function returning a string (optional)
+	default = defaults.var,	-- a boolean or function that returns a boolean (optional)
+	reference = "MyAddonCheckbox", -- unique global reference to control (optional)
 }	]]
 
 
-local widgetVersion = 8
+local widgetVersion = 11
 local LAM = LibStub("LibAddonMenu-2.0")
 if not LAM:RegisterWidget("checkbox", widgetVersion) then return end
 
@@ -57,7 +57,7 @@ end
 
 local function UpdateValue(control, forceDefault, value)
 	if forceDefault then	--if we are forcing defaults
-		value = control.data.default
+		value = LAM.util.GetDefaultValue(control.data.default)
 		control.data.setFunc(value)
 	elseif value ~= nil then	--our value could be false
 		control.data.setFunc(value)
@@ -101,62 +101,35 @@ local function OnMouseExit(control)
 	control.checkbox:SetColor(ZO_NORMAL_TEXT:UnpackRGBA())
 end
 
-
 --controlName is optional
 function LAMCreateControl.checkbox(parent, checkboxData, controlName)
-	local control = wm:CreateControl(controlName or checkboxData.reference, parent.scroll or parent, CT_CONTROL)
-	control:SetMouseEnabled(true)
-	--control.tooltipText = checkboxData.tooltip
+	local control = LAM.util.CreateLabelAndContainerControl(parent, checkboxData, controlName)
 	control:SetHandler("OnMouseEnter", OnMouseEnter)
 	control:SetHandler("OnMouseExit", OnMouseExit)
 	control:SetHandler("OnMouseUp", function(control)
-			if control.isDisabled then return end
-			PlaySound(SOUNDS.DEFAULT_CLICK)
-			control.value = not control.value
-			control:UpdateValue(false, control.value)
-		end)
+		if control.isDisabled then return end
+		PlaySound(SOUNDS.DEFAULT_CLICK)
+		control.value = not control.value
+		control:UpdateValue(false, control.value)
+	end)
 
-	control.label = wm:CreateControl(nil, control, CT_LABEL)
-	local label = control.label
-	label:SetFont("ZoFontWinH4")
-	label:SetText(checkboxData.name)
-	label:SetWrapMode(TEXT_WRAP_MODE_ELLIPSIS)
-	label:SetHeight(26)
-
-	control.checkbox = wm:CreateControl(nil, control, CT_LABEL)
+	control.checkbox = wm:CreateControl(nil, control.container, CT_LABEL)
 	local checkbox = control.checkbox
+	checkbox:SetAnchor(LEFT, control.container, LEFT, 0, 0)
 	checkbox:SetFont("ZoFontGameBold")
 	checkbox:SetColor(ZO_NORMAL_TEXT:UnpackRGBA())
 	control.checkedText = GetString(SI_CHECK_BUTTON_ON):upper()
 	control.uncheckedText = GetString(SI_CHECK_BUTTON_OFF):upper()
 
-	local isHalfWidth = checkboxData.width == "half"
-	if isHalfWidth then
-		control:SetDimensions(250, 55)
-		checkbox:SetDimensions(100, 26)
-		checkbox:SetAnchor(BOTTOMRIGHT)
-		label:SetAnchor(TOPLEFT)
-		label:SetAnchor(TOPRIGHT)
-	else
-		control:SetDimensions(510, 30)
-		checkbox:SetDimensions(200, 26)
-		checkbox:SetAnchor(RIGHT)
-		label:SetAnchor(LEFT)
-		label:SetAnchor(RIGHT, checkbox, LEFT, -5, 0)
-	end
-
 	if checkboxData.warning then
 		control.warning = wm:CreateControlFromVirtual(nil, control, "ZO_Options_WarningIcon")
 		control.warning:SetAnchor(RIGHT, checkbox, LEFT, -5, 0)
-		--control.warning.tooltipText = checkboxData.warning
-		control.warning.data = {tooltipText = checkboxData.warning}
+		control.warning.data = {tooltipText = LAM.util.GetStringFromValue(checkboxData.warning)}
 	end
 
-	control.panel = parent.panel or parent	--if this is in a submenu, panel is its parent
-	control.data = checkboxData
-	control.data.tooltipText = checkboxData.tooltip
+	control.data.tooltipText = LAM.util.GetStringFromValue(checkboxData.tooltip)
 
-	if checkboxData.disabled then
+	if checkboxData.disabled ~= nil then
 		control.UpdateDisabled = UpdateDisabled
 		control:UpdateDisabled()
 	end

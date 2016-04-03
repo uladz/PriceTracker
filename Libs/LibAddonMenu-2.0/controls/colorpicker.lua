@@ -1,18 +1,18 @@
 --[[colorpickerData = {
 	type = "colorpicker",
-	name = "My Color Picker",
-	tooltip = "Color Picker's tooltip text.",
+	name = "My Color Picker", -- or string id or function returning a string
 	getFunc = function() return db.r, db.g, db.b, db.a end,	--(alpha is optional)
 	setFunc = function(r,g,b,a) db.r=r, db.g=g, db.b=b, db.a=a end,	--(alpha is optional)
+	tooltip = "Color Picker's tooltip text.", -- or string id or function returning a string (optional)
 	width = "full",	--or "half" (optional)
 	disabled = function() return db.someBooleanSetting end,	--or boolean (optional)
-	warning = "Will need to reload the UI.",	--(optional)
-	default = {r = defaults.r, g = defaults.g, b = defaults.b, a = defaults.a},	--(optional) table of default color values (or default = defaultColor, where defaultColor is a table with keys of r, g, b[, a])
-	reference = "MyAddonColorpicker"	--(optional) unique global reference to control
+	warning = "Will need to reload the UI.",	-- or string id or function returning a string (optional)
+	default = {r = defaults.r, g = defaults.g, b = defaults.b, a = defaults.a},	--(optional) table of default color values (or default = defaultColor, where defaultColor is a table with keys of r, g, b[, a]) or a function that returns the color
+	reference = "MyAddonColorpicker"	-- unique global reference to control (optional)
 }	]]
 
 
-local widgetVersion = 6
+local widgetVersion = 10
 local LAM = LibStub("LibAddonMenu-2.0")
 if not LAM:RegisterWidget("colorpicker", widgetVersion) then return end
 
@@ -38,9 +38,9 @@ local function UpdateDisabled(control)
 	control.isDisabled = disable
 end
 
-local function UpdateValue(control, forceDefault, valueR, valueG, valueB, valueA)	
+local function UpdateValue(control, forceDefault, valueR, valueG, valueB, valueA)
 	if forceDefault then	--if we are forcing defaults
-		local color = control.data.default
+		local color = LAM.util.GetDefaultValue(control.data.default)
 		valueR, valueG, valueB, valueA = color.r, color.g, color.b, color.a
 		control.data.setFunc(valueR, valueG, valueB, valueA)
 	elseif valueR and valueG and valueB then
@@ -53,39 +53,14 @@ local function UpdateValue(control, forceDefault, valueR, valueG, valueB, valueA
 		valueR, valueG, valueB, valueA = control.data.getFunc()
 	end
 
-	control.thumb:SetColor(valueR, valueG, valueB, valueA or 1)	
+	control.thumb:SetColor(valueR, valueG, valueB, valueA or 1)
 end
 
-
 function LAMCreateControl.colorpicker(parent, colorpickerData, controlName)
-	local control = wm:CreateControl(controlName or colorpickerData.reference, parent.scroll or parent, CT_CONTROL)
-	control:SetMouseEnabled(true)
-	control:SetHandler("OnMouseEnter", ZO_Options_OnMouseEnter)
-	control:SetHandler("OnMouseExit", ZO_Options_OnMouseExit)
+	local control = LAM.util.CreateLabelAndContainerControl(parent, colorpickerData, controlName)
 
-	control.label = wm:CreateControl(nil, control, CT_LABEL)
-	local label = control.label
-	label:SetDimensions(300, 26)
-	label:SetAnchor(TOPLEFT)
-	label:SetFont("ZoFontWinH4")
-	label:SetWrapMode(TEXT_WRAP_MODE_ELLIPSIS)
-	label:SetText(colorpickerData.name)
-
-	control.color = wm:CreateControl(nil, control, CT_CONTROL)
+	control.color = control.container
 	local color = control.color
-
-	local isHalfWidth = colorpickerData.width == "half"
-	if isHalfWidth then
-		control:SetDimensions(250, 55)
-		label:SetDimensions(250, 26)
-		color:SetDimensions(100, 24)
-		color:SetAnchor(TOPRIGHT, label, BOTTOMRIGHT)
-	else
-		control:SetDimensions(510, 30)
-		label:SetDimensions(300, 26)
-		color:SetDimensions(200, 24)
-		color:SetAnchor(TOPRIGHT)
-	end
 
 	control.thumb = wm:CreateControl(nil, color, CT_TEXTURE)
 	local thumb = control.thumb
@@ -100,30 +75,27 @@ function LAMCreateControl.colorpicker(parent, colorpickerData, controlName)
 	border:SetAnchor(CENTER, thumb, CENTER, 0, 0)
 
 	local function ColorPickerCallback(r, g, b, a)
-			control:UpdateValue(false, r, g, b, a)
-		end
+		control:UpdateValue(false, r, g, b, a)
+	end
 
 	control:SetHandler("OnMouseUp", function(self, btn, upInside)
-			if self.isDisabled then return end
+		if self.isDisabled then return end
 
-			if upInside then
-				local r, g, b, a = colorpickerData.getFunc()
-				COLOR_PICKER:Show(ColorPickerCallback, r, g, b, a, colorpickerData.name)
-			end
-		end)
+		if upInside then
+			local r, g, b, a = colorpickerData.getFunc()
+			COLOR_PICKER:Show(ColorPickerCallback, r, g, b, a, LAM.util.GetStringFromValue(colorpickerData.name))
+		end
+	end)
 
 	if colorpickerData.warning then
 		control.warning = wm:CreateControlFromVirtual(nil, control, "ZO_Options_WarningIcon")
 		control.warning:SetAnchor(RIGHT, control.color, LEFT, -5, 0)
-		--control.warning.tooltipText = colorpickerData.warning
-		control.warning.data = {tooltipText = colorpickerData.warning}
+		control.warning.data = {tooltipText = LAM.util.GetStringFromValue(colorpickerData.warning)}
 	end
 
-	control.panel = parent.panel or parent	--if this is in a submenu, panel is its parent
-	control.data = colorpickerData
-	control.data.tooltipText = colorpickerData.tooltip
+	control.data.tooltipText = LAM.util.GetStringFromValue(colorpickerData.tooltip)
 
-	if colorpickerData.disabled then
+	if colorpickerData.disabled ~= nil then
 		control.UpdateDisabled = UpdateDisabled
 		control:UpdateDisabled()
 	end

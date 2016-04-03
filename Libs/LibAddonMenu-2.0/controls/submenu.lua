@@ -1,12 +1,12 @@
 --[[submenuData = {
 	type = "submenu",
-	name = "Submenu Title",
-	tooltip = "My submenu tooltip",	--(optional)
+	name = "Submenu Title", -- or string id or function returning a string
+	tooltip = "My submenu tooltip",	-- -- or string id or function returning a string (optional)
 	controls = {sliderData, buttonData}	--(optional) used by LAM
 	reference = "MyAddonSubmenu"	--(optional) unique global reference to control
 }	]]
 
-local widgetVersion = 8
+local widgetVersion = 11
 local LAM = LibStub("LibAddonMenu-2.0")
 if not LAM:RegisterWidget("submenu", widgetVersion) then return end
 
@@ -16,9 +16,9 @@ local tinsert = table.insert
 
 
 local function UpdateValue(control)
-	control.label:SetText(control.data.name)
+	control.label:SetText(LAM.util.GetStringFromValue(control.data.name))
 	if control.data.tooltip then
-		control.label.data = {tooltipText = control.data.tooltip}
+		control.label.data.tooltipText = LAM.util.GetStringFromValue(control.data.tooltip)
 	end
 end
 
@@ -33,21 +33,21 @@ local function AnimateSubmenu(clicked)
 	end
 end
 
-
 function LAMCreateControl.submenu(parent, submenuData, controlName)
+	local width = parent:GetWidth() - 45
 	local control = wm:CreateControl(controlName or submenuData.reference, parent.scroll or parent, CT_CONTROL)
 	control.panel = parent
-	control:SetDimensions(523, 40)
+	control.data = submenuData
 
 	control.label = wm:CreateControlFromVirtual(nil, control, "ZO_Options_SectionTitleLabel")
 	local label = control.label
 	label:SetAnchor(TOPLEFT, control, TOPLEFT, 5, 5)
-	label:SetDimensions(520, 30)
+	label:SetDimensions(width, 30)
 	label:SetWrapMode(TEXT_WRAP_MODE_ELLIPSIS)
-	label:SetText(submenuData.name)
+	label:SetText(LAM.util.GetStringFromValue(submenuData.name))
 	label:SetMouseEnabled(true)
 	if submenuData.tooltip then
-		label.data = {tooltipText = submenuData.tooltip}
+		label.data = {tooltipText = LAM.util.GetStringFromValue(submenuData.tooltip)}
 		label:SetHandler("OnMouseEnter", ZO_Options_OnMouseEnter)
 		label:SetHandler("OnMouseExit", ZO_Options_OnMouseExit)
 	end
@@ -56,7 +56,7 @@ function LAMCreateControl.submenu(parent, submenuData, controlName)
 	local scroll = control.scroll
 	scroll:SetParent(control)
 	scroll:SetAnchor(TOPLEFT, label, BOTTOMLEFT, 0, 10)
-	scroll:SetDimensionConstraints(525, 0, 525, 2500)
+	scroll:SetDimensionConstraints(width + 5, 0, width + 5, 0)
 
 	control.bg = wm:CreateControl(nil, label, CT_BACKDROP)
 	local bg = control.bg
@@ -101,8 +101,6 @@ function LAMCreateControl.submenu(parent, submenuData, controlName)
 	btmToggle:SetHeight(15)
 	btmToggle:SetAlpha(0)
 	btmToggle:SetHandler("OnMouseUp", AnimateSubmenu)
-
-	control.data = submenuData
 
 	control.UpdateValue = UpdateValue
 
