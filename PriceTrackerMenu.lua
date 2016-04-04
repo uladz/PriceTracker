@@ -31,8 +31,8 @@ function PriceTrackerMenu:InitAddonMenu()
 		type = "panel",
 		name = "Price Tracker",
 		displayName = PriceTracker.colors.title .. "Price Tacker|r",
-		author = "Barvazon (updated by Garkin)",
-		version = "2.6.2",
+		author = "Barvazon (updated by Garkin & @uladz)",
+		version = "2.6.3",
 		slashCommand = "/ptsetup",
 		registerForRefresh = true
 	}
