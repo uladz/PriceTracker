@@ -1,5 +1,11 @@
 Changelog
 
+v2.6.3 "Purple Gold" @uladz
+ - API bump to 100014 (2.3).
+ - Upgraded to LibAddonMenu-2.0 r20.
+ - Upgraded to LibStub r4.
+ - Fixed addon name so it's sorted by name correctly in Addons menu.
+
 v2.6.2 ~Garkin
  - updated API version
 
