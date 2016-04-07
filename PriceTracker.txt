@@ -8,6 +8,7 @@
 
 # Libraries
 Libs\LibStub\LibStub.lua
+Libs\LibAddonAPI\LibAddonAPI.lua
 Libs\LibAddonMenu-2.0\LibAddonMenu-2.0.lua
 Libs\LibAddonMenu-2.0\controls\panel.lua
 Libs\LibAddonMenu-2.0\controls\submenu.lua
