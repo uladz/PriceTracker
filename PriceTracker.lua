@@ -3,46 +3,85 @@
 -- ------------- --
 
 PriceTracker = {
-	isSearching = false,
-	settingsVersion = 0.3,
+  name = "PriceTracker",
+  title = "Price Tracker",
+  author = "Barvazon (updated by Garkin & @uladz)",
+  version = "2.6.3",
+	dbVersion = 0.3,
+
 	colors = {
 		default = "|c" .. ZO_TOOLTIP_DEFAULT_COLOR:ToHex(),
 		instructional = "|c" .. ZO_TOOLTIP_INSTRUCTIONAL_COLOR:ToHex(),
 		title = "|c00B5FF",
 	},
+
+  isSearching = false,
 	selectedItem = {},
 }
 local PriceTracker = PriceTracker
 
--- Addon initialization
+-- List of support suggested price calculation algorithms.
+PriceTracker.algorithmTable = {
+	"Average",
+	"Median",
+	"Most Frequently Used",
+	"Weighted Average",
+}
+
+-- Addon initialization.
 function PriceTracker:OnLoad(eventCode, addOnName)
-	if(addOnName ~= "PriceTracker") then return end
+  if(addOnName ~= self.name) then
+    return
+  end
 
-	EVENT_MANAGER:RegisterForEvent("OnSearchResultsReceived", EVENT_TRADING_HOUSE_SEARCH_RESULTS_RECEIVED, function(...) self:OnSearchResultsReceived(...) end)
-	EVENT_MANAGER:RegisterForEvent("OnSearchResultsError", EVENT_TRADING_HOUSE_ERROR, function(...) self:OnSearchResultsError(...) end)
-	EVENT_MANAGER:RegisterForEvent("OnTradingHouseOpened", EVENT_OPEN_TRADING_HOUSE, function(...) self:OnTradingHouseOpened(...) end)
-	EVENT_MANAGER:RegisterForEvent("OnTradingHouseClosed", EVENT_CLOSE_TRADING_HOUSE, function(...) self:OnTradingHouseClosed(...) end)
-	EVENT_MANAGER:RegisterForEvent("OnTradingHouseCooldown", EVENT_TRADING_HOUSE_SEARCH_COOLDOWN_UPDATE, function(...) self:OnTradingHouseCooldown(...) end)
+  -- Register for relevant trading house events.
+  EVENT_MANAGER:RegisterForEvent("OnSearchResultsReceived",
+      EVENT_TRADING_HOUSE_SEARCH_RESULTS_RECEIVED,
+      function(...) self:OnSearchResultsReceived(...) end)
+  EVENT_MANAGER:RegisterForEvent("OnSearchResultsError",
+      EVENT_TRADING_HOUSE_ERROR,
+      function(...) self:OnSearchResultsError(...) end)
+	EVENT_MANAGER:RegisterForEvent("OnTradingHouseOpened",
+      EVENT_OPEN_TRADING_HOUSE,
+      function(...) self:OnTradingHouseOpened(...) end)
+  EVENT_MANAGER:RegisterForEvent("OnTradingHouseClosed",
+      EVENT_CLOSE_TRADING_HOUSE,
+      function(...) self:OnTradingHouseClosed(...) end)
+	EVENT_MANAGER:RegisterForEvent("OnTradingHouseCooldown",
+      EVENT_TRADING_HOUSE_SEARCH_COOLDOWN_UPDATE,
+      function(...) self:OnTradingHouseCooldown(...) end)
 
-	LINK_HANDLER:RegisterCallback(LINK_HANDLER.LINK_CLICKED_EVENT, self.OnLinkClicked, self)
-	LINK_HANDLER:RegisterCallback(LINK_HANDLER.LINK_MOUSE_UP_EVENT, self.OnLinkClicked, self)
+  -- ???
+	LINK_HANDLER:RegisterCallback(LINK_HANDLER.LINK_CLICKED_EVENT,
+      self.OnLinkClicked, self)
+	LINK_HANDLER:RegisterCallback(LINK_HANDLER.LINK_MOUSE_UP_EVENT,
+      self.OnLinkClicked, self)
 
-	ZO_PreHookHandler(ItemTooltip, "OnUpdate", function() self:OnUpdateTooltip(moc(), ItemTooltip) end)
-	ZO_PreHookHandler(ItemTooltip, "OnHide", function() self:OnHideTooltip(ItemTooltip) end)
+  -- Register for item tooltip events.
+	ZO_PreHookHandler(ItemTooltip, "OnUpdate",
+      function() self:OnUpdateTooltip(moc(), ItemTooltip) end)
+	ZO_PreHookHandler(ItemTooltip, "OnHide",
+      function() self:OnHideTooltip(ItemTooltip) end)
+	ZO_PreHookHandler(PopupTooltip, "OnUpdate",
+      function() self:OnUpdateTooltip(self.clickedItem, PopupTooltip) end)
+	ZO_PreHookHandler(PopupTooltip, "OnHide",
+      function() self:OnHideTooltip(PopupTooltip) end)
 
-	ZO_PreHookHandler(PopupTooltip, "OnUpdate", function() self:OnUpdateTooltip(self.clickedItem, PopupTooltip) end)
-	ZO_PreHookHandler(PopupTooltip, "OnHide", function() self:OnHideTooltip(PopupTooltip) end)
+  -- ???
+	ZO_PreHook("ExecuteTradingHouseSearch",
+      function() self.scanButton:SetEnabled(false) end)
 
-	ZO_PreHook("ExecuteTradingHouseSearch", function() self.scanButton:SetEnabled(false) end)
-
+  -- Forward OnLoad event to enchanting table handler.
 	PriceTracker.enchantingTable:OnLoad(eventCode, addOnName)
 
+  -- Register chat commands.
 	SLASH_COMMANDS["/pt"] = function(...) self:CommandHandler(...) end
 	SLASH_COMMANDS["/pricetracker"] = function(...) self:CommandHandler(...) end
 
+  -- Load saved settings.
 	local defaults = {
 		itemList = {},
-		algorithm = self.menu.algorithmTable[4],
+		algorithm = self.algorithmTable[4],
 		showMinMax = true,
 		showSeen = true,
 		historyDays = 30,
@@ -51,14 +90,20 @@ function PriceTracker:OnLoad(eventCode, addOnName)
 		isPlaySound = true,
 		playSound = self.menu.soundTable[1],
 	}
+	self.db = ZO_SavedVars:NewAccountWide(
+      self.name.."Settings",
+      self.dbVersion,
+      nil,
+      defaults)
 
-	-- Load saved settings
-	self.settings = ZO_SavedVars:NewAccountWide("PriceTrackerSettings", self.settingsVersion, nil, defaults)
-
-	-- Do some housekeeping and remove inparsable items 
+	-- Do some housekeeping and remove inparsable items.
 	self:Housekeeping()
 
-	-- Create a button in the trading house window
+	-- Create the addon setting menu.
+	self.menu:InitAddonMenu()
+
+	-- Create Price Tracker buttons in the trading house window. Note that second
+	-- button [Stop Scan] is initially hidden.
 	self.scanButton = PriceTrackerControlButton
 	self.scanButton:SetParent(ZO_TradingHouseLeftPaneBrowseItemsCommon)
 	self.scanButton:SetWidth(ZO_TradingHouseLeftPaneBrowseItemsCommonQuality:GetWidth())
@@ -66,7 +111,9 @@ function PriceTracker:OnLoad(eventCode, addOnName)
 	self.stopButton:SetParent(ZO_TradingHouseLeftPaneBrowseItemsCommon)
 	self.stopButton:SetWidth(ZO_TradingHouseLeftPaneBrowseItemsCommonQuality:GetWidth())
 
-	self.menu:InitAddonMenu()
+	-- Publish addon API.
+	local libAA = LibStub:GetLibrary("LibAddonAPI")
+	libAA:RegisterAddon(self.name, 1)
 end
 
 -- Handle slash commands
@@ -79,7 +126,7 @@ function PriceTracker:CommandHandler(text)
 	end
 
 	if text == "reset" then
-		self.settings.itemList = {}
+		self.db.itemList = {}
 		return
 	end
 
@@ -107,58 +154,111 @@ function PriceTracker:ShowHelp()
 	d("/ptsetup - Open the addon settings menu")
 end
 
--- This method makes sure the item list is intact and parsable, in order to avoid exceptions later on
+-- This method makes sure the item list is intact and parsable, in order to
+-- avoid exceptions later on. It runs only once on loading the addon.
 function PriceTracker:Housekeeping()
-	if not self.settings.itemList then
-		self.settings.itemList = {}
+	-- First time ever addon loaded.
+	if not self.db.itemList then
+		self.db.itemList = {}
+		return
 	end
 
-	-- Preserve prices from previous UI versions
-	if PriceTrackerSettings["Default"][""] ~= nil then
-		PriceTrackerSettings["Default"][GetDisplayName()] = PriceTrackerSettings["Default"][""]
-		PriceTrackerSettings["Default"][""] = nil
-		ReloadUI("ingame")
-	end
-
-	--expiry is time listed + 30 days. So if I want to keep items for 60 days, I have to use historyDays - 30
-	local timestamp = GetTimeStamp() - 86400 * (self.settings.historyDays - 30)
-	for k, v in pairs(self.settings.itemList) do
+	-- Expiry is time listed + 30 days. So if I want to keep items for 60 days,
+	-- we have to use historyDays - 30.
+	local timestamp = GetTimeStamp() - 86400 * (self.db.historyDays - 30)
+	for k, v in pairs(self.db.itemList) do
 		if type(k) ~= "string" or #k > 5 then
-			self.settings.itemList[k] = nil
+			self.db.itemList[k] = nil
 		else
 			for level, item in pairs(v) do
 				for itemK, itemV in pairs(item) do
-					-- Remove invalid and expired items
-					if itemV.purchasePrice == nil or itemV.stackCount == nil or type(itemV.name) ~= "string" or type(itemV.expiry) ~= "number" or itemV.expiry < timestamp then
+					-- Remove invalid and expired items.
+					if itemV.purchasePrice == nil
+							or itemV.stackCount == nil
+							or type(itemV.name) ~= "string"
+							or type(itemV.expiry) ~= "number"
+							or itemV.expiry < timestamp then
 						item[itemK] = nil
-					else -- Remove redundant keys from older data
+					-- Remove redundant keys from older data.
+					else
 						itemV.normalizedName = nil
 						itemV.icon = nil
 						itemV.sellerName = nil
 						itemV.eachPrice = nil
 					end
 				end
-				if next(item) == nil then v[level] = nil end
+				if next(item) == nil then
+					v[level] = nil
+				end
 			end
 		end
-		if next(v) == nil then self.settings.itemList[k] = nil end
+		if next(v) == nil then
+			self.db.itemList[k] = nil
+		end
 	end
 end
 
+-- Helper function that adds a line to a tooltip with left text alligned to
+-- the left and right text alligned to the right.
+local function AddValuePair(tooltip, leftText, rightText)
+	local r, g, b = ZO_TOOLTIP_DEFAULT_COLOR:UnpackRGB()
+	tooltip:AddLine(leftText, "ZoFontGame", r, g, b,
+			LEFT,
+			MODIFY_TEXT_TYPE_NONE,
+			TEXT_ALIGN_LEFT,
+			true)
+	tooltip:AddVerticalPadding(-32)
+	tooltip:AddLine(rightText, "ZoFontGame", r, g, b,
+			RIGHT,
+			MODIFY_TEXT_TYPE_NONE,
+			TEXT_ALIGN_RIGHT,
+			true)
+end
+
 function PriceTracker:OnUpdateTooltip(item, tooltip)
-	if not tooltip then tooltip = ItemTooltip end
-	if not item or not item.dataEntry or not item.dataEntry.data or not self.menu:IsKeyPressed() or self.selectedItem[tooltip] == item then return end
+	if not tooltip then
+    tooltip = ItemTooltip
+	end
+	if not item
+			or not item.dataEntry
+			or not item.dataEntry.data
+			or not self.menu:IsKeyPressed() then
+		-- Tooltip has moved to another item but there is no Price Tracker info to
+		-- show. Treat as hiding tooltip to avoid bug that no PT info is shown when
+		-- returning back to the last item.
+		if self.selectedItem[tooltip] ~= item then
+			self:OnHideTooltip(tooltip)
+		end
+		return
+	end
+	if self.selectedItem[tooltip] == item then
+		-- Tooltip is still showing the same item Price Tracker info, do nothing
+		-- otherwise PT information will be duplicated.
+		return
+	end
+
+	-- New item was selected, add Price Tracke info to this tooltip.
 	self.selectedItem[tooltip] = item
-	local stackCount = item.dataEntry.data.stackCount or item.dataEntry.data.stack or item.dataEntry.data.count
-	if not stackCount then return end
 
+	-- Get number of items or stacks.
+	local stackCount = item.dataEntry.data.stackCount
+			or item.dataEntry.data.stack
+			or item.dataEntry.data.count
+	if not stackCount then
+		return
+	end
+
+	-- Get item metadata.
+	local itemId, level, quality
 	local itemLink = self:GetItemLink(item)
-	local _, _, _, itemId = ZO_LinkHandler_ParseLink(itemLink)
-	local level = self:GetItemLevel(itemLink)
-	local quality = GetItemLinkQuality(itemLink)
-
-	if not itemLink then
-		if item.dataEntry and item.dataEntry.data and item.dataEntry.data.itemId then
+	if itemLink then
+		_, _, _, itemId = ZO_LinkHandler_ParseLink(itemLink)
+		level = self:GetItemLevel(itemLink)
+		quality = GetItemLinkQuality(itemLink)
+	else
+		if item.dataEntry
+				and item.dataEntry.data
+				and item.dataEntry.data.itemId then
 			itemId = item.dataEntry.data.itemId
 			level = tonumber(item.dataEntry.data.level)
 			quality = item.dataEntry.data.quality
@@ -167,41 +267,88 @@ function PriceTracker:OnUpdateTooltip(item, tooltip)
 		end
 	end
 
+	-- Search internal prices database.
 	local matches = self:GetMatches(itemId, level, quality)
-	if not matches then return end
-
+	if not matches then
+		return
+	end
 	local item = self:SuggestPrice(matches)
-	if not item then return end
-
-	local r, g, b = ZO_TOOLTIP_DEFAULT_COLOR:UnpackRGB()
-	local function AddValuePair(leftText, rightText)
-		tooltip:AddLine(leftText, "ZoFontGame", r, g, b, LEFT, MODIFY_TEXT_TYPE_NONE, TEXT_ALIGN_LEFT, true)
-		tooltip:AddVerticalPadding(-32)
-		tooltip:AddLine(rightText, "ZoFontGame", r, g, b, RIGHT, MODIFY_TEXT_TYPE_NONE, TEXT_ALIGN_RIGHT, true)
+	if not item then
+		return
 	end
 
+	-- Add title.
 	tooltip:AddVerticalPadding(15)
 	ZO_Tooltip_AddDivider(tooltip)
-	tooltip:AddLine("Price Tracker", "ZoFontHeader2")
-	AddValuePair("Suggested price:", ("|cFFFFFF%d|r |t16:16:EsoUI/Art/currency/currency_gold.dds|t"):format(zo_round(item.purchasePrice / item.stackCount)))
+	tooltip:AddLine("Market Prices", "ZoFontHeader2")
+
+	local goldDDS = "EsoUI/Art/currency/currency_gold.dds"
+	local suggestedFmt = "|cFFFFFF%d|r |t16:16:"..goldDDS.."|t"
+	local stackPriceFmt = "|cFFFFFF%d|r / |cFFFFFF%d|r |t16:16:"..goldDDS.."|t"
+	local singlePriceFmt = "|cFFFFFF%d|r |t16:16:"..goldDDS.."|t"
+
+	-- Add suggested price info.
+	local suggestedPrice = item.purchasePrice / item.stackCount
+	AddValuePair(tooltip, "Suggested price:",
+		suggestedFmt:format(
+			zo_round(suggestedPrice)))
 	if stackCount > 1 then
 		tooltip:AddVerticalPadding(-6)
-		AddValuePair("Stack price:", ("|cFFFFFF%d|r |t16:16:EsoUI/Art/currency/currency_gold.dds|t"):format(zo_round(item.purchasePrice / item.stackCount * stackCount)))
+		AddValuePair(tooltip, "Stack price ("..stackCount.."):",
+			suggestedFmt:format(
+				zo_round(suggestedPrice*stackCount)))
 	end
-	if self.settings.showMinMax then
+
+	-- Show min/max values.
+	if self.db.showMinMax then
 		local minItem = self.mathUtils:Min(matches)
 		local maxItem = self.mathUtils:Max(matches)
 		local minPrice = zo_round(minItem.purchasePrice / minItem.stackCount)
 		local maxPrice = zo_round(maxItem.purchasePrice / maxItem.stackCount)
-		local minGuild = minItem.guildName and zo_strjoin(nil, "   (", zo_strtrim(("%-12.12s"):format(minItem.guildName)), ")") or ""
-		local maxGuild = maxItem.guildName and zo_strjoin(nil, "  (", zo_strtrim(("%-12.12s"):format(maxItem.guildName)), ")") or ""
+		local minGuild = minItem.guildName
+				and zo_strjoin(nil,
+					"   (", -- yes 3 spaces to align
+					zo_strtrim(("%-12.12s"):format(minItem.guildName)),
+					")")
+				or ""
+		local maxGuild = maxItem.guildName
+				and zo_strjoin(nil,
+					"  (", -- yes 3 spaces to align
+					zo_strtrim(("%-12.12s"):format(maxItem.guildName)),
+					")")
+				or ""
 		tooltip:AddVerticalPadding(-6)
-		AddValuePair("Min (each / stack):" .. minGuild, ("|cFFFFFF%d|r / |cFFFFFF%d|r |t16:16:EsoUI/Art/currency/currency_gold.dds|t"):format(minPrice, minPrice * stackCount))
-		tooltip:AddVerticalPadding(-6)
-		AddValuePair("Max (each / stack):" .. maxGuild, ("|cFFFFFF%d|r / |cFFFFFF%d|r |t16:16:EsoUI/Art/currency/currency_gold.dds|t"):format(maxPrice, maxPrice * stackCount))
+		if stackCount > 1 then
+			AddValuePair(tooltip, "Min each/stack:" .. minGuild,
+				stackPriceFmt:format(
+					minPrice,
+					minPrice*stackCount))
+			tooltip:AddVerticalPadding(-6)
+			AddValuePair(tooltip, "Max each/stack:" .. maxGuild,
+				stackPriceFmt:format(
+					maxPrice,
+					maxPrice*stackCount))
+		else
+			AddValuePair(tooltip, "Min:" .. minGuild,
+				singlePriceFmt:format(
+					minPrice))
+			tooltip:AddVerticalPadding(-6)
+			AddValuePair(tooltip, "Max:" .. maxGuild,
+				singlePriceFmt:format(
+					maxPrice))
+		end
 	end
-	if self.settings.showSeen then
-		tooltip:AddLine("Seen " .. #matches .. " times", "ZoFontGame", r, g, b, CENTER, MODIFY_TEXT_TYPE_NONE, TEXT_ALIGN_CENTER, false)
+
+	-- Show number of times seen.
+	if self.db.showSeen then
+		tooltip:AddLine(
+				"Seen "..#matches.." times",
+				"ZoFontGame",
+				r, g, b,
+				CENTER,
+				MODIFY_TEXT_TYPE_NONE,
+				TEXT_ALIGN_CENTER,
+				false)
 	end
 end
 
@@ -211,7 +358,10 @@ function PriceTracker:OnHideTooltip(tooltip)
 end
 
 function PriceTracker:OnScanPrices()
-	if self.isSearching then return end
+	-- Scan already in progress.
+	if self.isSearching then
+		return
+	end
 
 	self.scanButton:SetEnabled(false)
 	self.scanButton:SetHidden(true)
@@ -289,8 +439,8 @@ function PriceTracker:OnSearchResultsReceived(eventId, guildId, numItemsOnPage, 
 				end, GetTradingHouseCooldownRemaining() + 1000)
 
 		else
-			if self.settings.isPlaySound then
-				PlaySound(self.settings.playSound)
+			if self.db.isPlaySound then
+				PlaySound(self.db.playSound)
 			end
 			self:OnTradingHouseClosed()
 		end
@@ -341,11 +491,11 @@ function PriceTracker:AddItem(index)
 
 	if not purchasePrice or not stackCount then return end
 
-	self.settings.itemList[itemId] = self.settings.itemList[itemId] or {}
-	self.settings.itemList[itemId][level] = self.settings.itemList[itemId][level] or {}
+	self.db.itemList[itemId] = self.db.itemList[itemId] or {}
+	self.db.itemList[itemId][level] = self.db.itemList[itemId][level] or {}
 
 	-- Do not add items that are already in the database
-	if not self.settings.itemList[itemId][level][expiry] then
+	if not self.db.itemList[itemId][level][expiry] then
 		local item = {
 			expiry = expiry,
 			name = itemName,
@@ -355,14 +505,14 @@ function PriceTracker:AddItem(index)
 			guildId = self.currentGuildId or 0, --0 = kiosk
 			guildName = self.currentGuildName
 		}
-		self.settings.itemList[itemId][level][expiry] = item
+		self.db.itemList[itemId][level][expiry] = item
 	end
 end
 
 function PriceTracker:CleanItemList(days)
 	days = tonumber(days) or 30
 	local timestamp = GetTimeStamp() - 86400 * (days - 30)
-	for k, v in pairs(self.settings.itemList) do
+	for k, v in pairs(self.db.itemList) do
 		for level, item in pairs(v) do
 			for itemK, itemV in pairs(item) do
 				if itemV.expiry < timestamp then
@@ -371,19 +521,19 @@ function PriceTracker:CleanItemList(days)
 			end
 			if next(item) == nil then v[level] = nil end
 		end
-		if next(v) == nil then self.settings.itemList[k] = nil end
+		if next(v) == nil then self.db.itemList[k] = nil end
 	end
 end
 
 function PriceTracker:GetMatches(itemId, itemLevel, quality)
-	if not self.settings.itemList or not self.settings.itemList[itemId] then
+	if not self.db.itemList or not self.db.itemList[itemId] then
 		return nil
 	end
 
-	local limitToGuild = self.settings.limitToGuild or 1
+	local limitToGuild = self.db.limitToGuild or 1
 
 	local matches = {}
-	for level, items in pairs(self.settings.itemList[itemId]) do
+	for level, items in pairs(self.db.itemList[itemId]) do
 		level = tonumber(level)
 		if not itemLevel or itemLevel == level or (itemLevel < 2 and level < 2) then
 			local index = next(items)
@@ -396,30 +546,24 @@ function PriceTracker:GetMatches(itemId, itemLevel, quality)
 		end
 	end
 	local minSeen = 0
-	if self.settings.ignoreFewItems then minSeen = 2 end
+	if self.db.ignoreFewItems then minSeen = 2 end
 	if #matches <= minSeen then return nil end
 	return matches
 end
 
 function PriceTracker:SuggestPrice(matches)
-	if self.settings.algorithm == self.menu.algorithmTable[1] then
+	if self.db.algorithm == self.algorithmTable[1] then
 		return self.mathUtils:Average(matches)
-	end
-
-	if self.settings.algorithm == self.menu.algorithmTable[2] then
+	elseif self.db.algorithm == self.algorithmTable[2] then
 		return self.mathUtils:Median(matches)
-	end
-
-	if self.settings.algorithm == self.menu.algorithmTable[3] then
+	elseif self.db.algorithm == self.algorithmTable[3] then
 		return self.mathUtils:Mode(matches)
-	end
- 
-	if self.settings.algorithm == self.menu.algorithmTable[4] then
+	elseif self.db.algorithm == self.algorithmTable[4] then
 		return self.mathUtils:WeightedAverage(matches)
+	else
+		d("Error deciding how to calculate suggested price")
+		return nil
 	end
-
-	d("Error deciding how to calculate suggested price")
-	return nil
 end
 
 function PriceTracker:GetItemLink(item)
