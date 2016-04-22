@@ -459,7 +459,8 @@ function PriceTracker:OnUpdateTooltip(item, tooltip)
 		local min = self.mathUtils:Min(matches)
 		local max = self.mathUtils:Max(matches)
 		local range = max - min
-		AddLine(tooltip, ("Price range = %.2f: [%d - %d]"):format(range, min, max))
+		AddLine(tooltip, ("Price range = %.2f: [%d - %d]"):format(
+			range, zo_round(min), zo_round(max)))
 		local mean = self.mathUtils:Average(matches)
 		local median = self.mathUtils:Median(matches)
 		local mode = self.mathUtils:Mode(matches)
@@ -468,15 +469,14 @@ function PriceTracker:OnUpdateTooltip(item, tooltip)
 		local stddev_lower = math.max(mean - stddev, min)
 		local stddev_upper = math.min(mean + stddev, max)
 		local stddev_pct = (stddev_upper - stddev_lower) / range * 100
-		local stddev_lower = math.max(mean - stddev, min)
 		AddLine(tooltip, ("Std. Dev. = %.2f (%.2f%%): [%d - %d]"):format(
-			stddev, stddev_pct, stddev_lower, stddev_upper))
+			stddev, stddev_pct, zo_round(stddev_lower), zo_round(stddev_upper)))
 		local conf95 = stddev * 1.96
 		local conf95_lower = math.max(mean - conf95, min)
 		local conf95_upper = math.min(mean + conf95, max)
 		local conf95_pct = (conf95_upper - conf95_lower) / range * 100
 		AddLine(tooltip, ("95%% Conf. = %.2f (%.2f%%): [%d - %d]"):format(
-			conf95, conf95_pct, conf95_lower, conf95_upper))
+			conf95, conf95_pct, zo_round(conf95_lower), zo_round(conf95_upper)))
 	end
 end
 
@@ -760,6 +760,7 @@ function PriceTracker:GetItemLink(item)
 	return nil
 end
 
+-- Returns item level. After level
 function PriceTracker:GetItemLevel(itemLink)
 	local level = GetItemLinkRequiredLevel(itemLink)
 	if level == 50 then
@@ -768,4 +769,7 @@ function PriceTracker:GetItemLevel(itemLink)
 	return level
 end
 
-EVENT_MANAGER:RegisterForEvent("PriceTrackerLoaded", EVENT_ADD_ON_LOADED, function(...) PriceTracker:OnLoad(...) end)
+EVENT_MANAGER:RegisterForEvent("PriceTrackerLoaded",
+	EVENT_ADD_ON_LOADED,
+	function(...) PriceTracker:OnLoad(...) end
+)
