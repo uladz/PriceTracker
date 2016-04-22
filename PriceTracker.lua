@@ -67,7 +67,7 @@ function PriceTracker:OnLoad(eventCode, addOnName)
 	ZO_PreHookHandler(PopupTooltip, "OnHide",
       function() self:OnHideTooltip(PopupTooltip) end)
 
-  -- ???
+  -- Automatically disable [Scan Prices] button when user performs search.
 	ZO_PreHook("ExecuteTradingHouseSearch",
       function() self.scanButton:SetEnabled(false) end)
 
@@ -83,7 +83,9 @@ function PriceTracker:OnLoad(eventCode, addOnName)
 		itemList = {},
 		algorithm = self.algorithmTable[4],
 		showMinMax = true,
-		showSeen = true,
+		showSeen = false,
+		showWasntSeen = false,
+		showMath = false,
 		historyDays = 30,
 		ignoreFewItems = false,
 		keyPress = self.menu.keyTable[1],
@@ -96,7 +98,7 @@ function PriceTracker:OnLoad(eventCode, addOnName)
       nil,
       defaults)
 
-	-- Do some housekeeping and remove inparsable items.
+	-- Do some housekeeping and remove inparsable/invalid items from database.
 	self:Housekeeping()
 
 	-- Create the addon setting menu.
@@ -111,25 +113,26 @@ function PriceTracker:OnLoad(eventCode, addOnName)
 	self.stopButton:SetParent(ZO_TradingHouseLeftPaneBrowseItemsCommon)
 	self.stopButton:SetWidth(ZO_TradingHouseLeftPaneBrowseItemsCommonQuality:GetWidth())
 
+	self.scanButton = PriceTrackerControlButton
+
 	-- Publish addon API.
 	local libAA = LibStub:GetLibrary("LibAddonAPI")
 	libAA:RegisterAddon(self.name, 1)
 end
 
--- Handle slash commands
+-- Handle /slash commands.
 function PriceTracker:CommandHandler(text)
 	text = text:lower()
 
+	-- User options.
 	if #text == 0 or text == "help" then
 		self:ShowHelp()
 		return
 	end
-
 	if text == "reset" then
 		self.db.itemList = {}
 		return
 	end
-
 	if text:find("^clean") then
 		local days = select(3, text:find("^clean (%d+)"))
 		days = tonumber(days) or 30
@@ -137,21 +140,21 @@ function PriceTracker:CommandHandler(text)
 		return
 	end
 
-	-- Hidden option
+	-- Hidden options.
 	if text == "housekeeping" then
 		self:Housekeeping()
 		return
 	end
-
 end
 
 function PriceTracker:ShowHelp()
-	d("To scan all item prices in all guild stores, click the 'Scan Prices' button in the guild store window.")
+	d("To scan all item prices in all guild stores, click the [Scan Prices] button in the guild store window. You can also scan prices of other guild store while at a vendor. Press [Stop Scan] if you want to abort scan.")
 	d(" ")
-	d("/pt help - Show this help")
-	d("/pt clean <days> - Remove prices older then <days> (30 days if not specified)")
-	d("/pt reset - Remove all stored price values")
-	d("/ptsetup - Open the addon settings menu")
+	d("Other commands: ")
+	d("/pt help - Show this help.")
+	d("/pt clean <days> - Remove prices older then <days> (30 days if not specified).")
+	d("/pt reset - Remove all stored price values.")
+	d("/ptsetup - Open the addon settings menu.")
 end
 
 -- This method makes sure the item list is intact and parsable, in order to
@@ -198,43 +201,146 @@ function PriceTracker:Housekeeping()
 	end
 end
 
--- Helper function that adds a line to a tooltip with left text alligned to
--- the left and right text alligned to the right.
-local function AddValuePair(tooltip, leftText, rightText)
-	local r, g, b = ZO_TOOLTIP_DEFAULT_COLOR:UnpackRGB()
-	tooltip:AddLine(leftText, "ZoFontGame", r, g, b,
-			LEFT,
-			MODIFY_TEXT_TYPE_NONE,
-			TEXT_ALIGN_LEFT,
-			true)
-	tooltip:AddVerticalPadding(-32)
-	tooltip:AddLine(rightText, "ZoFontGame", r, g, b,
-			RIGHT,
-			MODIFY_TEXT_TYPE_NONE,
-			TEXT_ALIGN_RIGHT,
-			true)
+local function Collect(tooltip, object)
+	if not tooltip.pt_objects then
+		tooltip.pt_objects = {}
+	end
+	table.insert(tooltip.pt_objects, object)
 end
 
+local function AddDivider(tooltip)
+	if not tooltip.pt_dividerPool then
+		tooltip.pt_dividerPool = ZO_ControlPool:New(
+			"ZO_BaseTooltipDivider",
+			tooltip,
+			"PT_Divider")
+	end
+	local div = tooltip.pt_dividerPool:AcquireObject()
+	tooltip:AddControl(div)
+	div:SetAnchor(CENTER)
+	div:SetHidden(false)
+	Collect(tooltip, div)
+	tooltip:AddVerticalPadding(-10)
+end
+
+local function AddLine(tooltip, text, font, align)
+	if not tooltip.pt_labelPool then
+		tooltip.pt_labelPool = ZO_ControlPool:New(
+			"ZO_TooltipLabel",
+			tooltip,
+			"PT_Label")
+	end
+	if not font then
+		font = "ZoFontGame"
+	end
+	if not align then
+		align = TEXT_ALIGN_CENTER
+	end
+	local label = tooltip.pt_labelPool:AcquireObject()
+	tooltip:AddControl(label)
+	label:SetAnchor(CENTER)
+	label:SetWidth(tooltip:GetWidth())
+	label:SetHorizontalAlignment(align)
+	label:SetFont(font)
+	label:SetText(text)
+	label:SetHidden(false)
+	Collect(tooltip, label)
+	if text == "" then
+		label:SetHeight(0)
+	elseif align ~= TEXT_ALIGN_LEFT then
+		tooltip:AddVerticalPadding(-10)
+	end
+end
+
+local function AddPadding(tooltip, height)
+	if not tooltip.pt_labelPool then
+		tooltip.pt_labelPool = ZO_ControlPool:New(
+			"ZO_TooltipLabel",
+			tooltip,
+			"PT_Label")
+	end
+	local pad = tooltip.pt_labelPool:AcquireObject()
+	tooltip:AddControl(pad)
+	pad:SetAnchor(CENTER)
+	pad:SetWidth(tooltip:GetWidth())
+	pad:SetHeight(height+10)
+	pad:SetText("")
+	pad:SetHidden(false)
+	Collect(tooltip, pad)
+	tooltip:AddVerticalPadding(-10)
+end
+
+local function AddLine2(tooltip, leftText, rightText)
+	AddLine(tooltip, leftText, "ZoFontGame", TEXT_ALIGN_LEFT)
+	tooltip:AddVerticalPadding(-32)
+	AddLine(tooltip, rightText, "ZoFontGame", TEXT_ALIGN_RIGHT)
+end
+
+local function ReleaseAllObjects(tooltip)
+	if tooltip.pt_dividerPool then
+		tooltip.pt_dividerPool:ReleaseAllObjects()
+	end
+	if tooltip.pt_labelPool then
+		tooltip.pt_labelPool:ReleaseAllObjects()
+	end
+	tooltip.pt_objects = nil
+	tooltip.pt_init = nil
+end
+
+local function HideAllObjects(tooltip)
+	if not tooltip.pt_objects then
+		return
+	end
+	for k, v in pairs(tooltip.pt_objects) do
+		v:SetHidden(true)
+	end
+end
+
+local function ShowAllObjects(tooltip)
+	if not tooltip.pt_objects then
+		return
+	end
+	for _, object in pairs(tooltip.pt_objects) do
+		object:SetHidden(false)
+	end
+end
+
+-- Called when a tooltip is created or when any condition has changed, like
+-- key was pressed or mouse moved. Anything that can change what's displayed
+-- in the tooltip.
 function PriceTracker:OnUpdateTooltip(item, tooltip)
 	if not tooltip then
     tooltip = ItemTooltip
 	end
 	if not item
 			or not item.dataEntry
-			or not item.dataEntry.data
-			or not self.menu:IsKeyPressed() then
+			or not item.dataEntry.data then
 		-- Tooltip has moved to another item but there is no Price Tracker info to
 		-- show. Treat as hiding tooltip to avoid bug that no PT info is shown when
 		-- returning back to the last item.
-		if self.selectedItem[tooltip] ~= item then
-			self:OnHideTooltip(tooltip)
-		end
+		self:OnHideTooltip(tooltip)
 		return
 	end
 	if self.selectedItem[tooltip] == item then
-		-- Tooltip is still showing the same item Price Tracker info, do nothing
-		-- otherwise PT information will be duplicated.
+		-- Tooltip already showing this item's Price Tracker info, do not rebuilt
+		-- labels otherwise PT information will be duplicated. Only trace key modifiers
+		-- to show or hide existing PT info in the tooltip.
+		if self.menu:IsKeyPressed() then
+			ShowAllObjects(tooltip)
+		else
+			HideAllObjects(tooltip)
+		end
 		return
+	else
+		-- New item selected, which means that the tooltip was reset and we need
+		-- to clean up PT labels also and rebuilt PT info labels from scratch.
+		self:OnHideTooltip(tooltip)
+		if not self.menu:IsKeyPressed() then
+			-- If the key modifier is not pressed, treat no PT info available, PT info
+			-- will be added later when the key is pressed and this update function
+			-- is called again.
+			return
+		end
 	end
 
 	-- New item was selected, add Price Tracke info to this tooltip.
@@ -269,18 +375,23 @@ function PriceTracker:OnUpdateTooltip(item, tooltip)
 
 	-- Search internal prices database.
 	local matches = self:GetMatches(itemId, level, quality)
-	if not matches then
-		return
-	end
-	local item = self:SuggestPrice(matches)
-	if not item then
-		return
-	end
 
 	-- Add title.
-	tooltip:AddVerticalPadding(15)
-	ZO_Tooltip_AddDivider(tooltip)
-	tooltip:AddLine("Market Prices", "ZoFontHeader2")
+	if matches or self.db.showWasntSeen then
+		AddPadding(tooltip, 5)
+		AddDivider(tooltip)
+		AddPadding(tooltip, 3)
+		AddLine(tooltip, "Market Prices", "ZoFontHeader2")
+		AddPadding(tooltip, 3)
+	end
+
+	-- Exit if no price data available.
+	if not matches then
+		if self.db.showWasntSeen then
+			AddLine(tooltip, "Wan't seen is trade houses yet")
+		end
+		return
+	end
 
 	local goldDDS = "EsoUI/Art/currency/currency_gold.dds"
 	local suggestedFmt = "|cFFFFFF%d|r |t16:16:"..goldDDS.."|t"
@@ -288,21 +399,20 @@ function PriceTracker:OnUpdateTooltip(item, tooltip)
 	local singlePriceFmt = "|cFFFFFF%d|r |t16:16:"..goldDDS.."|t"
 
 	-- Add suggested price info.
-	local suggestedPrice = item.purchasePrice / item.stackCount
-	AddValuePair(tooltip, "Suggested price:",
+	local suggestedPrice, priceName = self:SuggestPrice(matches)
+	AddLine2(tooltip, "Suggested price ("..priceName.."):",
 		suggestedFmt:format(
 			zo_round(suggestedPrice)))
 	if stackCount > 1 then
-		tooltip:AddVerticalPadding(-6)
-		AddValuePair(tooltip, "Stack price ("..stackCount.."):",
+		AddLine2(tooltip, "Stack price ("..stackCount.."):",
 			suggestedFmt:format(
 				zo_round(suggestedPrice*stackCount)))
 	end
 
 	-- Show min/max values.
 	if self.db.showMinMax then
-		local minItem = self.mathUtils:Min(matches)
-		local maxItem = self.mathUtils:Max(matches)
+		local minItem = self.mathUtils:MinItem(matches)
+		local maxItem = self.mathUtils:MaxItem(matches)
 		local minPrice = zo_round(minItem.purchasePrice / minItem.stackCount)
 		local maxPrice = zo_round(maxItem.purchasePrice / maxItem.stackCount)
 		local minGuild = minItem.guildName
@@ -317,86 +427,131 @@ function PriceTracker:OnUpdateTooltip(item, tooltip)
 					zo_strtrim(("%-12.12s"):format(maxItem.guildName)),
 					")")
 				or ""
-		tooltip:AddVerticalPadding(-6)
 		if stackCount > 1 then
-			AddValuePair(tooltip, "Min each/stack:" .. minGuild,
+			AddLine2(tooltip, "Min each/stack:" .. minGuild,
 				stackPriceFmt:format(
 					minPrice,
 					minPrice*stackCount))
-			tooltip:AddVerticalPadding(-6)
-			AddValuePair(tooltip, "Max each/stack:" .. maxGuild,
+			AddLine2(tooltip, "Max each/stack:" .. maxGuild,
 				stackPriceFmt:format(
 					maxPrice,
 					maxPrice*stackCount))
 		else
-			AddValuePair(tooltip, "Min:" .. minGuild,
+			AddLine2(tooltip, "Min:" .. minGuild,
 				singlePriceFmt:format(
 					minPrice))
-			tooltip:AddVerticalPadding(-6)
-			AddValuePair(tooltip, "Max:" .. maxGuild,
+			AddLine2(tooltip, "Max:" .. maxGuild,
 				singlePriceFmt:format(
 					maxPrice))
 		end
 	end
 
-	-- Show number of times seen.
+	AddLine2(tooltip, "", "")
+	if 	self.db.showSeen or self.db.showMath then
+		AddPadding(tooltip, 15)
+	end
+
+	-- Show some advance info.
 	if self.db.showSeen then
-		tooltip:AddLine(
-				"Seen "..#matches.." times",
-				"ZoFontGame",
-				r, g, b,
-				CENTER,
-				MODIFY_TEXT_TYPE_NONE,
-				TEXT_ALIGN_CENTER,
-				false)
+		AddLine(tooltip, "Seen "..#matches.." times")
+	end
+	if self.db.showMath then
+		local min = self.mathUtils:Min(matches)
+		local max = self.mathUtils:Max(matches)
+		local range = max - min
+		AddLine(tooltip, ("Price range = %.2f: [%d - %d]"):format(range, min, max))
+		local mean = self.mathUtils:Average(matches)
+		local median = self.mathUtils:Median(matches)
+		local mode = self.mathUtils:Mode(matches)
+		AddLine(tooltip, ("Mean = %.2f, Median = %.2f, Mode = %.2f"):format(mean, median, mode))
+		local stddev = self.mathUtils:StdDev(matches)
+		local stddev_lower = math.max(mean - stddev, min)
+		local stddev_upper = math.min(mean + stddev, max)
+		local stddev_pct = (stddev_upper - stddev_lower) / range * 100
+		local stddev_lower = math.max(mean - stddev, min)
+		AddLine(tooltip, ("Std. Dev. = %.2f (%.2f%%): [%d - %d]"):format(
+			stddev, stddev_pct, stddev_lower, stddev_upper))
+		local conf95 = stddev * 1.96
+		local conf95_lower = math.max(mean - conf95, min)
+		local conf95_upper = math.min(mean + conf95, max)
+		local conf95_pct = (conf95_upper - conf95_lower) / range * 100
+		AddLine(tooltip, ("95%% Conf. = %.2f (%.2f%%): [%d - %d]"):format(
+			conf95, conf95_pct, conf95_lower, conf95_upper))
 	end
 end
 
+-- Called when tooltip is hidden, i.e. removed. Basically this is the place
+-- where you want to clean up your PT stuff.
 function PriceTracker:OnHideTooltip(tooltip)
+	if not self.selectedItem[tooltip] then
+		-- no PT info was shown, nothing to do
+		return
+	end
 	self.selectedItem[tooltip] = nil
 	self.clickedItem = nil
+	ReleaseAllObjects(tooltip)
 end
 
+-- Called when [Scan Prices] button is clicked.
 function PriceTracker:OnScanPrices()
-	-- Scan already in progress.
 	if self.isSearching then
+		-- scan is already in progress, what else?
 		return
 	end
 
+	-- Replace [Scan Prices] with [Stop Scan] button.
 	self.scanButton:SetEnabled(false)
 	self.scanButton:SetHidden(true)
 	self.stopButton:SetHidden(false)
+
+	-- Initialize scan engine.
 	self.isSearching = true
 	self.currentPage = 0
 	self.currentGuildId = GetSelectedTradingHouseGuildId()
 	self.currentGuildIndex = 1
 
-	if self.currentGuildId and self.currentGuildId > 0 then --if using guild trader, self.currentGuildId is nil 
+	-- Select first guild trading house to scan.
+	-- If using guild trader, self.currentGuildId is nil.
+	if self.currentGuildId and self.currentGuildId > 0 then
 		self.numOfGuilds = GetNumTradingHouseGuilds()
 		self.currentGuildId = GetGuildId(self.currentGuildIndex)
-		while not CanSellOnTradingHouse(self.currentGuildId) and self.currentGuildIndex < self.numOfGuilds do
+		while not CanSellOnTradingHouse(self.currentGuildId)
+				and self.currentGuildIndex < self.numOfGuilds do
 			self.currentGuildIndex = self.currentGuildIndex + 1
 			self.currentGuildId = GetGuildId(self.currentGuildIndex)
 		end
 		SelectTradingHouseGuildId(self.currentGuildId)
 	end
 
-	zo_callLater(function()
+	-- Execute backgroud price scan.
+	zo_callLater(
+		function()
 			if self.isSearching then
 				ExecuteTradingHouseSearch(0, TRADING_HOUSE_SORT_SALE_PRICE, true)
 			end
-		end, GetTradingHouseCooldownRemaining() + 1000)
+		end,
+		GetTradingHouseCooldownRemaining() + 1000
+	)
 end
 
+-- Called when [Stop Scan] button is clicked.
 function PriceTracker:OnStopScan()
 	self.isSearching = false
 	self.stopButton:SetHidden(true)
 	self.scanButton:SetHidden(false)
 end
 
+-- Called when PC open a trading house window (bank or merchant).
 function PriceTracker:OnTradingHouseOpened(eventCode)
 	self.isSearching = false
 	self.scanButton:SetEnabled(true)
+	self.stopButton:SetHidden(true)
+	self.scanButton:SetHidden(false)
+end
+
+-- Called when PC closes a trading house window (bank or merchant).
+function PriceTracker:OnTradingHouseClosed(eventCode)
+	self.isSearching = false
 	self.stopButton:SetHidden(true)
 	self.scanButton:SetHidden(false)
 end
@@ -455,14 +610,7 @@ function PriceTracker:OnSearchResultsError(eventCode, errorCode)
 	if self.isSearching then
 		d("Error scanning prices. Please try again.")
 	end
-
 	self:OnTradingHouseClosed()
-end
-
-function PriceTracker:OnTradingHouseClosed(eventCode)
-	self.isSearching = false
-	self.stopButton:SetHidden(true)
-	self.scanButton:SetHidden(false)
 end
 
 function PriceTracker:OnLinkClicked(rawLink, mouseButton, linkText, linkStyle, linkType, itemId, ...)
@@ -553,17 +701,16 @@ end
 
 function PriceTracker:SuggestPrice(matches)
 	if self.db.algorithm == self.algorithmTable[1] then
-		return self.mathUtils:Average(matches)
+		return self.mathUtils:Average(matches), "mean"
 	elseif self.db.algorithm == self.algorithmTable[2] then
-		return self.mathUtils:Median(matches)
+		return self.mathUtils:Median(matches), "median"
 	elseif self.db.algorithm == self.algorithmTable[3] then
-		return self.mathUtils:Mode(matches)
+		return self.mathUtils:Mode(matches), "mode"
 	elseif self.db.algorithm == self.algorithmTable[4] then
-		return self.mathUtils:WeightedAverage(matches)
-	else
-		d("Error deciding how to calculate suggested price")
-		return nil
+		return self.mathUtils:WeightedAverage(matches), "weight"
 	end
+	assert(false, "bug")
+	return nil
 end
 
 function PriceTracker:GetItemLink(item)

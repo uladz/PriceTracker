@@ -94,15 +94,27 @@ function PriceTrackerMenu:InitAddonMenu()
 			tooltip = "Show minimum and maximum sell values",
 			getFunc = function() return PT.db.showMinMax end,
 			setFunc = function(value) PT.db.showMinMax = value end,
-			default = true
+		},
+		{
+			type = "checkbox",
+			name = "Show 'Wasn't seen'",
+			tooltip = "Show tooltip info even if the item was not seen yet in guild stores and no price data available.",
+			getFunc = function() return PT.db.showWasntSeen end,
+			setFunc = function(value) PT.db.showWasntSeen = value end,
 		},
 		{
 			type = "checkbox",
 			name = "Show 'Seen'",
-			tooltip = "Show how many times an item was seen in the guild stores",
+			tooltip = "Show how many times an item was seen in the guild stores so far.",
 			getFunc = function() return PT.db.showSeen end,
 			setFunc = function(value) PT.db.showSeen = value end,
-			default = true
+		},
+		{
+			type = "checkbox",
+			name = "Show Advanced Math",
+			tooltip = "Show various aditional advanced statistics like stdder, confidence, etc.",
+			getFunc = function() return PT.db.showMath end,
+			setFunc = function(value) PT.db.showMath = value end,
 		},
 		{
 			type = "dropdown",
