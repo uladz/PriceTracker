@@ -5,8 +5,8 @@
 PriceTracker = {
   name = "PriceTracker",
   title = "Price Tracker",
-  author = "Barvazon (updated by Garkin & @uladz)",
-  version = "2.6.3",
+  author = "@uladz, Garkin, Barvazon",
+  version = "2.7.0",
 	dbVersion = 0.3,
 
 	colors = {
@@ -699,6 +699,7 @@ function PriceTracker:GetMatches(itemId, itemLevel, quality)
 	return matches
 end
 
+-- Calculates suggested market price.
 function PriceTracker:SuggestPrice(matches)
 	if self.db.algorithm == self.algorithmTable[1] then
 		return self.mathUtils:Average(matches), "mean"
