@@ -48,30 +48,36 @@ function PriceTrackerMenu:SetLimitToGuild(guildName)
 	PT.db.limitToGuild = 1
 end
 
+-- Opens addon options menu.
+function PriceTrackerMenu:OpenSettings()
+	local LAM2 = LibStub:GetLibrary("LibAddonMenu-2.0")
+	LAM2:OpenToPanel(self.panel)
+end
+
 function PriceTrackerMenu:InitAddonMenu()
+	-- Addon LAM2 config panel
 	local panelData = {
 		type = "panel",
 		name = PT.title,
 		displayName = PT.colors.title .. "Price Tacker|r",
 		author = PT.author,
 		version = PT.version,
-		slashCommand = "/ptsetup",
 		registerForRefresh = true
 	}
 
+	-- Addon LAM2 options.
 	local optionsData = {
 		{
 			type = "dropdown",
-			name = "Select price algorithm",
+			name = "Suggested Price Algorithm",
 			choices = PT.algorithmTable,
 			getFunc = function() return PT.db.algorithm or PT.algorithmTable[1] end,
 			setFunc = function(value) PT.db.algorithm = value end,
-			default = PT.algorithmTable[1]
 		},
 		{
 			type = "description",
 			title = PT.colors.instructional .. "Average" .. PT.colors.default,
-			text = "The average price of all items."
+			text = "The average (mean) price of all items."
 		},
 		{
 			type = "description",
@@ -87,6 +93,11 @@ function PriceTrackerMenu:InitAddonMenu()
 			type = "description",
 			title = PT.colors.instructional .. "Weighted Average" .. PT.colors.default,
 			text = "The average price of all items, with date taken into account. The latest data gets a wighting of X, where X is the number of days the data covers, thus making newest data worth more."
+		},
+		{
+			type = "header",
+			name = "Other Options",
+			width = "full",
 		},
 		{
 			type = "checkbox",
@@ -172,7 +183,8 @@ function PriceTrackerMenu:InitAddonMenu()
 		},
 	}
 
+	-- Register addon settings.
 	local LAM2 = LibStub:GetLibrary("LibAddonMenu-2.0")
-	LAM2:RegisterAddonPanel(PT.name.."Options", panelData)
+	self.panel = LAM2:RegisterAddonPanel(PT.name.."Options", panelData)
 	LAM2:RegisterOptionControls(PT.name.."Options", optionsData)
 end

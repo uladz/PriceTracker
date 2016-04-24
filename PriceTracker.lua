@@ -129,6 +129,10 @@ function PriceTracker:CommandHandler(text)
 		self:ShowHelp()
 		return
 	end
+	if text == "setup" then
+		self.menu:OpenSettings()
+		return
+	end
 	if text == "reset" then
 		self.db.itemList = {}
 		return
@@ -139,6 +143,10 @@ function PriceTracker:CommandHandler(text)
 		self:CleanItemList(days)
 		return
 	end
+	if text == "stats" then
+		self:ShowStats()
+		return
+	end
 
 	-- Hidden options.
 	if text == "housekeeping" then
@@ -147,6 +155,7 @@ function PriceTracker:CommandHandler(text)
 	end
 end
 
+-- Print help info.
 function PriceTracker:ShowHelp()
 	d("To scan all item prices in all guild stores, click the [Scan Prices] button in the guild store window. You can also scan prices of other guild store while at a vendor. Press [Stop Scan] if you want to abort scan.")
 	d(" ")
@@ -154,7 +163,35 @@ function PriceTracker:ShowHelp()
 	d("/pt help - Show this help.")
 	d("/pt clean <days> - Remove prices older then <days> (30 days if not specified).")
 	d("/pt reset - Remove all stored price values.")
-	d("/ptsetup - Open the addon settings menu.")
+	d("/pt setup - Open the addon settings menu.")
+end
+
+-- Prints out database statistics.
+function PriceTracker:ShowStats()
+	local itemsCnt = 0
+	local uniqueCnt = 0
+	local recordsCnt = 0
+	local oldestTime = 2147483647
+	local newestTime = 0
+	for k, v in pairs(self.db.itemList) do
+		itemsCnt = itemsCnt + 1
+		for level, item in pairs(v) do
+			uniqueCnt = uniqueCnt + 1
+			for itemK, itemV in pairs(item) do
+				recordsCnt = recordsCnt + 1
+				oldestTime = zo_min(oldestTime, itemV.expiry)
+				newestTime = zo_max(newestTime, itemV.expiry)
+			end
+		end
+	end
+	oldestTime = zo_round((GetTimeStamp() + 30*86400 - oldestTime)/86400)
+	newestTime = zo_round((GetTimeStamp() + 30*86400 - newestTime)/86400)
+	d("Price Tracker statistics:")
+	d("- Number of known items = "..itemsCnt)
+	d("- Number of unique items = "..uniqueCnt)
+	d("- Number of price records = "..recordsCnt)
+	d("- Oldest time stamp = "..oldestTime.." day(s) ago")
+	d("- Newest time stamp = "..newestTime.." day(s) ago")
 end
 
 -- This method makes sure the item list is intact and parsable, in order to
