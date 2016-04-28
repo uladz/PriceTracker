@@ -86,6 +86,7 @@ function PriceTracker:OnLoad(eventCode, addOnName)
 		showSeen = false,
 		showWasntSeen = false,
 		showMath = false,
+		ignoreFilters = false,
 		historyDays = 30,
 		ignoreFewItems = false,
 		keyPress = self.menu.keyTable[1],
@@ -534,6 +535,12 @@ function PriceTracker:OnScanPrices()
 	if self.isSearching then
 		-- scan is already in progress, what else?
 		return
+	end
+
+	-- Reset guild store filter before scan to scan all items instead of only ones
+	-- that are selected by the filters. Behavior controlled by user options.
+	if self.db.ignoreFilters then
+		TRADING_HOUSE:ResetAllSearchData()
 	end
 
 	-- Replace [Scan Prices] with [Stop Scan] button.

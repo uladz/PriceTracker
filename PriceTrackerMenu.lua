@@ -77,26 +77,26 @@ function PriceTrackerMenu:InitAddonMenu()
 		{
 			type = "description",
 			title = PT.colors.instructional .. "Average" .. PT.colors.default,
-			text = "The average (mean) price of all items."
+			text = "The average (mean) price of all items seen in guild trading houses. This is the most commonly used statistical estimation of the market price, but may be affected by extreme outliners."
 		},
 		{
 			type = "description",
 			title = PT.colors.instructional .. "Median" .. PT.colors.default,
-			text = "The price value for which half of the items cost more and half cost less."
+			text = "The price value for which half of the items cost more and half cost less. This statistics may provide more robust suggested price estimate in vilatile market conditions."
 		},
 		{
 			type = "description",
 			title = PT.colors.instructional .. "Most Frequently Used (also known as Mode)" .. PT.colors.default,
-			text = "The most common price value."
+			text = "The most common item price value observed. This estimate is the least affected by otlining price values but less effective for items with low number of sales."
 		},
 		{
 			type = "description",
 			title = PT.colors.instructional .. "Weighted Average" .. PT.colors.default,
-			text = "The average price of all items, with date taken into account. The latest data gets a wighting of X, where X is the number of days the data covers, thus making newest data worth more."
+			text = "The average price of all items, with date taken into account. The latest data gets a wighting of X, where X is the number of days the data covers, thus making newest data worth more. This statistics takes into account trend on prices."
 		},
 		{
 			type = "header",
-			name = "Other Options",
+			name = "Price Suggestion Options",
 			width = "full",
 		},
 		{
@@ -154,6 +154,11 @@ function PriceTrackerMenu:InitAddonMenu()
 			default = false
 		},
 		{
+			type = "header",
+			name = "Price Scan Options",
+			width = "full",
+		},
+		{
 			type = "slider",
 			name = "Keep item prices for (days):",
 			tooltip = "Keep item prices for selected number of days. Older data will be automatically removed.",
@@ -165,7 +170,15 @@ function PriceTrackerMenu:InitAddonMenu()
 		},
 		{
 			type = "checkbox",
-			name = "Audible notification",
+			name = "Ignore guild store filters",
+			tooltip = "Ignore currently set filters in a guild store and perform complete scan of all items. Otherwise will scan only subset of items selected by store filters.",
+			getFunc = function() return PT.db.ignoreFilters end,
+			setFunc = function(value) PT.db.ignoreFilters = value end,
+			default = false
+		},
+		{
+			type = "checkbox",
+			name = "Scan complete notification",
 			tooltip = "Play an audio notification when item scan is complete",
 			getFunc = function() return PT.db.isPlaySound end,
 			setFunc = function(value) PT.db.isPlaySound = value end,
@@ -173,7 +186,7 @@ function PriceTrackerMenu:InitAddonMenu()
 		},
 		{
 			type = "dropdown",
-			name = "Sound type",
+			name = "Notification sound",
 			tooltip = "Select which sound to play upon scan completion",
 			choices = self.soundTable,
 			getFunc = function() return PT.db.playSound or self.soundTable[1] end,
