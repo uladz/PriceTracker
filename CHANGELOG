@@ -1,5 +1,16 @@
 Changelog
 
+v2.7.1 "Blackwood Updates" @rvca18
+ - API update to 100035
+ - Removed included LibAddonMenu dependency, it should now be installed separately
+ - Removed included LibStub dependency
+ - Updated options menu to be compatible with latest LibAddonMenu-2.0 r32
+ - Fixed broken sound options
+ - Selecting a single guild in the addon options will now only search items from that guild instead of all guilds
+ - Added a search notification status field
+ - Removed the 1 second delay added to GetTradingHouseCooldownRemaining(), the built in cd is good enough
+ - Fixed grammatical errors
+
 v2.6.3 "Purple Gold" @uladz
  - API bump to 100014 (2.3).
  - Upgraded to LibAddonMenu-2.0 r20.

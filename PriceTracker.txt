@@ -1,28 +1,10 @@
-## Title: Price Tracker Updated |c9988772.7.0|r
-## Author: @uladz, |cEFEBBEGarkin|r, Barvazon
-## Version: 2.7.0
+## Title: Price Tracker Updated |c9988772.7.1|r
+## Author: @uladz & @rvca18, |cEFEBBEGarkin|r, Barvazon
+## Version: 2.7.1
 ## Description: Price Tracker is a minimalistic addon that scans all your guild store prices or any other guild prices at trader's store, tracks history of item price chages and suggests you the best market sell price to list at your guild store.
-## APIVersion: 100014
+## APIVersion: 100035
 ## SavedVariables: PriceTrackerSettings
-## OptionalDependsOn: LibAddonMenu-2.0
-
-# Libraries
-Libs\LibStub\LibStub.lua
-Libs\LibAddonAPI\LibAddonAPI.lua
-Libs\LibAddonMenu-2.0\LibAddonMenu-2.0.lua
-Libs\LibAddonMenu-2.0\controls\panel.lua
-Libs\LibAddonMenu-2.0\controls\submenu.lua
-Libs\LibAddonMenu-2.0\controls\button.lua
-Libs\LibAddonMenu-2.0\controls\checkbox.lua
-Libs\LibAddonMenu-2.0\controls\colorpicker.lua
-Libs\LibAddonMenu-2.0\controls\custom.lua
-Libs\LibAddonMenu-2.0\controls\description.lua
-Libs\LibAddonMenu-2.0\controls\dropdown.lua
-Libs\LibAddonMenu-2.0\controls\editbox.lua
-Libs\LibAddonMenu-2.0\controls\header.lua
-Libs\LibAddonMenu-2.0\controls\slider.lua
-Libs\LibAddonMenu-2.0\controls\texture.lua
-Libs\LibAddonMenu-2.0\controls\iconpicker.lua
+## DependsOn: LibAddonMenu-2.0
 
 # Addon files
 PriceTracker.xml

@@ -1,13 +1,16 @@
 <GuiXml>
 	<Controls>
+		<Label name="PriceTrackerNotifier" font="ZoFontHeader2" color="INTERFACE_COLOR_TYPE_TEXT_COLORS:INTERFACE_TEXT_COLOR_SELECTED" text=" ">
+			<Anchor point="BOTTOMLEFT" relativeTo="ZO_TradingHouse" relativePoint="BOTTOMLEFT"  offsetY="57"/>
+		</Label>
 		<Button name="PriceTrackerControlButton" inherits="ZO_DefaultButton" text="Scan Prices">
-			<Anchor point="BOTTOMLEFT" relativeTo="ZO_TradingHouse" relativePoint="BOTTOMLEFT"/>
+			<Anchor point="BOTTOMLEFT" relativeTo="ZO_TradingHouse" relativePoint="BOTTOMLEFT"  offsetY="27"/>
 			<OnClicked>
 				PriceTracker:OnScanPrices()
 			</OnClicked>
 		</Button>
 		<Button name="PriceTrackerStopButton" inherits="ZO_DefaultButton" text="Stop Scan" hidden="true">
-			<Anchor point="BOTTOMLEFT" relativeTo="ZO_TradingHouse" relativePoint="BOTTOMLEFT"/>
+			<Anchor point="BOTTOMLEFT" relativeTo="ZO_TradingHouse" relativePoint="BOTTOMLEFT" offsetY="27"/>
 			<OnClicked>
 				PriceTracker:OnStopScan()
 			</OnClicked>
