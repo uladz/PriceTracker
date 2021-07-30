@@ -13,10 +13,10 @@ PriceTrackerMenu.keyTable = {
 }
 
 PriceTrackerMenu.soundTable = {
-	SOUNDS.BOOK_ACQUIRED,
-	SOUNDS.ACHIEVEMENT_AWARDED,
-	SOUNDS.FRIEND_REQUEST_ACCEPTED,
-	SOUNDS.GUILD_SELF_JOINED,
+	"Display_Announcement",
+	"LevelUp",
+	"Justice_NoLongerKOS",
+	"BG_CA_AreaCaptured_OtherTeam",
 }
 
 function PriceTrackerMenu:IsKeyPressed()
@@ -48,9 +48,19 @@ function PriceTrackerMenu:SetLimitToGuild(guildName)
 	PT.db.limitToGuild = 1
 end
 
+function PriceTrackerMenu:setCompletionSound(soundName)
+  for k, v in pairs(SOUNDS) do
+    if SOUNDS[k] == soundName then
+      PlaySound(SOUNDS[k])
+      PriceTracker.db.playSound = SOUNDS[k]
+      return
+    end
+  end
+end
+
 -- Opens addon options menu.
 function PriceTrackerMenu:OpenSettings()
-	local LAM2 = LibStub:GetLibrary("LibAddonMenu-2.0")
+	local LAM2 = LibAddonMenu2
 	LAM2:OpenToPanel(self.panel)
 end
 
@@ -77,22 +87,22 @@ function PriceTrackerMenu:InitAddonMenu()
 		{
 			type = "description",
 			title = PT.colors.instructional .. "Average" .. PT.colors.default,
-			text = "The average (mean) price of all items seen in guild trading houses. This is the most commonly used statistical estimation of the market price, but may be affected by extreme outliners."
+			text = "The average (mean) price of all items seen in guild trading houses. This is the most commonly used statistical estimation of the market price, but may be affected by extreme outliers."
 		},
 		{
 			type = "description",
 			title = PT.colors.instructional .. "Median" .. PT.colors.default,
-			text = "The price value for which half of the items cost more and half cost less. This statistics may provide more robust suggested price estimate in vilatile market conditions."
+			text = "The price value for which half of the items cost more and half cost less. This statistics may provide a more robust suggested price estimate in volatile market conditions."
 		},
 		{
 			type = "description",
 			title = PT.colors.instructional .. "Most Frequently Used (also known as Mode)" .. PT.colors.default,
-			text = "The most common item price value observed. This estimate is the least affected by otlining price values but less effective for items with low number of sales."
+			text = "The most common item price value observed. This estimate is the least affected by outlining price values but less effective for items with low number of sales."
 		},
 		{
 			type = "description",
 			title = PT.colors.instructional .. "Weighted Average" .. PT.colors.default,
-			text = "The average price of all items, with date taken into account. The latest data gets a wighting of X, where X is the number of days the data covers, thus making newest data worth more. This statistics takes into account trend on prices."
+			text = "The average price of all items, with date taken into account. The latest data gets a wighting of X, where X is the number of days the data covers, thus making the newest data worth more. This statistics takes into account trends in prices."
 		},
 		{
 			type = "header",
@@ -102,14 +112,14 @@ function PriceTrackerMenu:InitAddonMenu()
 		{
 			type = "checkbox",
 			name = "Show Min / Max Prices",
-			tooltip = "Show minimum and maximum sell values",
+			tooltip = "Show minimum and maximum sell values.",
 			getFunc = function() return PT.db.showMinMax end,
 			setFunc = function(value) PT.db.showMinMax = value end,
 		},
 		{
 			type = "checkbox",
 			name = "Show 'Wasn't seen'",
-			tooltip = "Show tooltip info even if the item was not seen yet in guild stores and no price data available.",
+			tooltip = "Show tooltip info even if the item was not seen yet in guild stores and no price data is available.",
 			getFunc = function() return PT.db.showWasntSeen end,
 			setFunc = function(value) PT.db.showWasntSeen = value end,
 		},
@@ -123,7 +133,7 @@ function PriceTrackerMenu:InitAddonMenu()
 		{
 			type = "checkbox",
 			name = "Show Advanced Math",
-			tooltip = "Show various aditional advanced statistics like stdder, confidence, etc.",
+			tooltip = "Show various additional advanced statistics like stdder, confidence, etc.",
 			getFunc = function() return PT.db.showMath end,
 			setFunc = function(value) PT.db.showMath = value end,
 		},
@@ -139,7 +149,7 @@ function PriceTrackerMenu:InitAddonMenu()
 		{
 			type = "dropdown",
 			name = "Limit results to a specific guild",
-			tooltip = "Check pricing data from all guild, or a specific one",
+			tooltip = "Check pricing data from all guilds, or a specific one.",
 			choices = self:GetGuildList(),
 			getFunc = function() return self:GetGuildList() [PT.db.limitToGuild or 1] end,
 			setFunc = function(value) self:SetLimitToGuild(value) end,
@@ -148,7 +158,7 @@ function PriceTrackerMenu:InitAddonMenu()
 		{
 			type = "checkbox",
 			name = "Ignore infrequent items",
-			tooltip = "Ignore items that were seen only once or twice, as their price statistics may be inaccurate",
+			tooltip = "Ignore items that were seen only once or twice, as their price statistics may be inaccurate.",
 			getFunc = function() return PT.db.ignoreFewItems end,
 			setFunc = function(value) PT.db.ignoreFewItems = value end,
 			default = false
@@ -161,7 +171,7 @@ function PriceTrackerMenu:InitAddonMenu()
 		{
 			type = "slider",
 			name = "Keep item prices for (days):",
-			tooltip = "Keep item prices for selected number of days. Older data will be automatically removed.",
+			tooltip = "Keep item prices for a selected number of days. Older data will be automatically removed.",
 			min = 7,
 			max = 120,
 			getFunc = function() return PT.db.historyDays end,
@@ -171,7 +181,7 @@ function PriceTrackerMenu:InitAddonMenu()
 		{
 			type = "checkbox",
 			name = "Ignore guild store filters",
-			tooltip = "Ignore currently set filters in a guild store and perform complete scan of all items. Otherwise will scan only subset of items selected by store filters.",
+			tooltip = "Ignore currently set filters in a guild store and perform a complete scan of all items. Otherwise will scan only a subset of items selected by store filters.",
 			getFunc = function() return PT.db.ignoreFilters end,
 			setFunc = function(value) PT.db.ignoreFilters = value end,
 			default = false
@@ -179,25 +189,24 @@ function PriceTrackerMenu:InitAddonMenu()
 		{
 			type = "checkbox",
 			name = "Scan complete notification",
-			tooltip = "Play an audio notification when item scan is complete",
+			tooltip = "Play an audio notification when item scan is complete.",
 			getFunc = function() return PT.db.isPlaySound end,
 			setFunc = function(value) PT.db.isPlaySound = value end,
 			default = false
 		},
 		{
 			type = "dropdown",
-			name = "Notification sound",
-			tooltip = "Select which sound to play upon scan completion",
+			name = "Sound type",
+			tooltip = "Select which sound to play upon scan completion.",
 			choices = self.soundTable,
 			getFunc = function() return PT.db.playSound or self.soundTable[1] end,
-			setFunc = function(value) PT.db.playSound = value end,
+			setFunc = function(...) self:setCompletionSound(...) end,
 			disabled = function() return not PT.db.isPlaySound end,
 			default = self.soundTable[1]
 		},
 	}
 
-	-- Register addon settings.
-	local LAM2 = LibStub:GetLibrary("LibAddonMenu-2.0")
-	self.panel = LAM2:RegisterAddonPanel(PT.name.."Options", panelData)
-	LAM2:RegisterOptionControls(PT.name.."Options", optionsData)
+	local LAM2 = LibAddonMenu2
+	self.panel = LAM2:RegisterAddonPanel("PriceTrackerOptions", panelData)
+	LAM2:RegisterOptionControls("PriceTrackerOptions", optionsData)
 end
