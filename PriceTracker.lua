@@ -5,11 +5,11 @@
 PriceTracker = {
   name = "PriceTracker",
   title = "Price Tracker",
-  author = "@uladz, Garkin, Barvazon",
-  version = "2.7.0",
-	dbVersion = 0.3,
-
-	colors = {
+  author = "@uladz & @rvca18, Garkin, Barvazon",
+  version = "2.7.1",
+  dbVersion = 0.3,
+  
+  colors = {
 		default = "|c" .. ZO_TOOLTIP_DEFAULT_COLOR:ToHex(),
 		instructional = "|c" .. ZO_TOOLTIP_INSTRUCTIONAL_COLOR:ToHex(),
 		title = "|c00B5FF",
@@ -36,40 +36,40 @@ function PriceTracker:OnLoad(eventCode, addOnName)
 
   -- Register for relevant trading house events.
   EVENT_MANAGER:RegisterForEvent("OnSearchResultsReceived",
-      EVENT_TRADING_HOUSE_SEARCH_RESULTS_RECEIVED,
-      function(...) self:OnSearchResultsReceived(...) end)
+    EVENT_TRADING_HOUSE_RESPONSE_RECEIVED,
+    function(...) self:OnSearchResultsReceived(...) end)
   EVENT_MANAGER:RegisterForEvent("OnSearchResultsError",
-      EVENT_TRADING_HOUSE_ERROR,
-      function(...) self:OnSearchResultsError(...) end)
+    EVENT_TRADING_HOUSE_ERROR,
+    function(...) self:OnSearchResultsError(...) end)
 	EVENT_MANAGER:RegisterForEvent("OnTradingHouseOpened",
-      EVENT_OPEN_TRADING_HOUSE,
-      function(...) self:OnTradingHouseOpened(...) end)
+    EVENT_OPEN_TRADING_HOUSE,
+    function(...) self:OnTradingHouseOpened(...) end)
   EVENT_MANAGER:RegisterForEvent("OnTradingHouseClosed",
-      EVENT_CLOSE_TRADING_HOUSE,
-      function(...) self:OnTradingHouseClosed(...) end)
+    EVENT_CLOSE_TRADING_HOUSE,
+    function(...) self:OnTradingHouseClosed(...) end)
 	EVENT_MANAGER:RegisterForEvent("OnTradingHouseCooldown",
-      EVENT_TRADING_HOUSE_SEARCH_COOLDOWN_UPDATE,
-      function(...) self:OnTradingHouseCooldown(...) end)
+    EVENT_TRADING_HOUSE_SEARCH_COOLDOWN_UPDATE,
+    function(...) self:OnTradingHouseCooldown(...) end)
 
   -- ???
 	LINK_HANDLER:RegisterCallback(LINK_HANDLER.LINK_CLICKED_EVENT,
-      self.OnLinkClicked, self)
+    self.OnLinkClicked, self)
 	LINK_HANDLER:RegisterCallback(LINK_HANDLER.LINK_MOUSE_UP_EVENT,
-      self.OnLinkClicked, self)
+    self.OnLinkClicked, self)
 
   -- Register for item tooltip events.
 	ZO_PreHookHandler(ItemTooltip, "OnUpdate",
-      function() self:OnUpdateTooltip(moc(), ItemTooltip) end)
+    function() self:OnUpdateTooltip(moc(), ItemTooltip) end)
 	ZO_PreHookHandler(ItemTooltip, "OnHide",
-      function() self:OnHideTooltip(ItemTooltip) end)
+    function() self:OnHideTooltip(ItemTooltip) end)
 	ZO_PreHookHandler(PopupTooltip, "OnUpdate",
-      function() self:OnUpdateTooltip(self.clickedItem, PopupTooltip) end)
+    function() self:OnUpdateTooltip(self.clickedItem, PopupTooltip) end)
 	ZO_PreHookHandler(PopupTooltip, "OnHide",
-      function() self:OnHideTooltip(PopupTooltip) end)
+    function() self:OnHideTooltip(PopupTooltip) end)
 
   -- Automatically disable [Scan Prices] button when user performs search.
 	ZO_PreHook("ExecuteTradingHouseSearch",
-      function() self.scanButton:SetEnabled(false) end)
+    function() self.scanButton:SetEnabled(false) end)
 
   -- Forward OnLoad event to enchanting table handler.
 	PriceTracker.enchantingTable:OnLoad(eventCode, addOnName)
@@ -102,23 +102,22 @@ function PriceTracker:OnLoad(eventCode, addOnName)
 	-- Do some housekeeping and remove inparsable/invalid items from database.
 	self:Housekeeping()
 
-	-- Create the addon setting menu.
-	self.menu:InitAddonMenu()
+	-- Create Pricing Scan Notification Area
+	self.scanLabel = PriceTrackerNotifier
+	self.scanLabel:SetParent(ZO_TradingHouseBrowseItemsLeftPane)
+	self.scanLabel:SetWidth(ZO_TradingHouseBrowseItemsLeftPane:GetWidth())
 
 	-- Create Price Tracker buttons in the trading house window. Note that second
 	-- button [Stop Scan] is initially hidden.
 	self.scanButton = PriceTrackerControlButton
-	self.scanButton:SetParent(ZO_TradingHouseLeftPaneBrowseItemsCommon)
-	self.scanButton:SetWidth(ZO_TradingHouseLeftPaneBrowseItemsCommonQuality:GetWidth())
+	self.scanButton:SetParent(ZO_TradingHouseBrowseItemsLeftPane)
+	self.scanButton:SetWidth(ZO_TradingHouseBrowseItemsLeftPane:GetWidth())
 	self.stopButton = PriceTrackerStopButton
-	self.stopButton:SetParent(ZO_TradingHouseLeftPaneBrowseItemsCommon)
-	self.stopButton:SetWidth(ZO_TradingHouseLeftPaneBrowseItemsCommonQuality:GetWidth())
+	self.stopButton:SetParent(ZO_TradingHouseBrowseItemsLeftPane)
+	self.stopButton:SetWidth(ZO_TradingHouseBrowseItemsLeftPane:GetWidth())
 
-	self.scanButton = PriceTrackerControlButton
-
-	-- Publish addon API.
-	local libAA = LibStub:GetLibrary("LibAddonAPI")
-	libAA:RegisterAddon(self.name, 1)
+	-- Create the addon setting menu.
+	self.menu:InitAddonMenu()  
 end
 
 -- Handle /slash commands.
@@ -426,7 +425,7 @@ function PriceTracker:OnUpdateTooltip(item, tooltip)
 	-- Exit if no price data available.
 	if not matches then
 		if self.db.showWasntSeen then
-			AddLine(tooltip, "Wan't seen is trade houses yet")
+			AddLine(tooltip, "Wasn't seen is trade houses yet")
 		end
 		return
 	end
@@ -551,12 +550,20 @@ function PriceTracker:OnScanPrices()
 	-- Initialize scan engine.
 	self.isSearching = true
 	self.currentPage = 0
-	self.currentGuildId = GetSelectedTradingHouseGuildId()
+  self.numOfGuilds = 0
+
+	-- Select a single guild to search based on selected settings
+	if self.db.limitToGuild > 1 then
+		self.currentGuildId = GetGuildId(self.db.limitToGuild - 1)
+	else
+		self.currentGuildId = GetSelectedTradingHouseGuildId()
+	end
+
 	self.currentGuildIndex = 1
 
 	-- Select first guild trading house to scan.
 	-- If using guild trader, self.currentGuildId is nil.
-	if self.currentGuildId and self.currentGuildId > 0 then
+	if self.currentGuildId and self.currentGuildId > 0 and self.db.limitToGuild == 1 then
 		self.numOfGuilds = GetNumTradingHouseGuilds()
 		self.currentGuildId = GetGuildId(self.currentGuildIndex)
 		while not CanSellOnTradingHouse(self.currentGuildId)
@@ -564,17 +571,19 @@ function PriceTracker:OnScanPrices()
 			self.currentGuildIndex = self.currentGuildIndex + 1
 			self.currentGuildId = GetGuildId(self.currentGuildIndex)
 		end
-		SelectTradingHouseGuildId(self.currentGuildId)
 	end
 
-	-- Execute backgroud price scan.
+  SelectTradingHouseGuildId(self.currentGuildId)
+
+	-- Execute background price scan.
 	zo_callLater(
 		function()
 			if self.isSearching then
+        self.scanLabel:SetText("|cf79f07Scanning|r: Page 1")
 				ExecuteTradingHouseSearch(0, TRADING_HOUSE_SORT_SALE_PRICE, true)
 			end
 		end,
-		GetTradingHouseCooldownRemaining() + 1000
+		GetTradingHouseCooldownRemaining()
 	)
 end
 
@@ -588,6 +597,7 @@ end
 -- Called when PC open a trading house window (bank or merchant).
 function PriceTracker:OnTradingHouseOpened(eventCode)
 	self.isSearching = false
+  self.scanLabel:SetText(" ")
 	self.scanButton:SetEnabled(true)
 	self.stopButton:SetHidden(true)
 	self.scanButton:SetHidden(false)
@@ -600,23 +610,31 @@ function PriceTracker:OnTradingHouseClosed(eventCode)
 	self.scanButton:SetHidden(false)
 end
 
-function PriceTracker:OnSearchResultsReceived(eventId, guildId, numItemsOnPage, currentPage, hasMorePages)
-	self.currentGuildId = guildId
+function PriceTracker:OnSearchResultsReceived(eventId, tradeResponse, result)
+	if tradeResponse ~= 14 then return end
+	if not self.isSearching then return end
+
+	self.currentGuildId = select(1, GetCurrentTradingHouseGuildDetails())
 	self.currentGuildName = select(2, GetCurrentTradingHouseGuildDetails())
+	
+	local numItemsOnPage = select(1, GetTradingHouseSearchResultsInfo())
+	local currentPage = select(2, GetTradingHouseSearchResultsInfo())
+	local hasMorePages = select(3, GetTradingHouseSearchResultsInfo())
+
+	self.currentPage = currentPage
+  PlaySound(SOUNDS.BOOK_PAGE_TURN)
+  self.scanLabel:SetText("|cf79f07Scanning|r: Page " .. currentPage + 1)
+
 	for i = 1, numItemsOnPage do
 		self:AddItem(i)
 	end
-
-	if not self.isSearching then return end
-
-	self.currentPage = currentPage
 
 	if hasMorePages then
 		zo_callLater(function()
 				if self.isSearching then
 					ExecuteTradingHouseSearch(currentPage + 1, TRADING_HOUSE_SORT_SALE_PRICE, true)
 				end
-			end, GetTradingHouseCooldownRemaining() + 1000)
+			end, GetTradingHouseCooldownRemaining())
 	else
 		if self.currentGuildId and self.currentGuildId > 0 and self.currentGuildIndex and self.currentGuildIndex < self.numOfGuilds then
 			self.currentGuildIndex = self.currentGuildIndex + 1
@@ -633,15 +651,21 @@ function PriceTracker:OnSearchResultsReceived(eventId, guildId, numItemsOnPage, 
 								if self.isSearching then
 									ExecuteTradingHouseSearch(0, TRADING_HOUSE_SORT_SALE_PRICE, true)
 								end
-							end, GetTradingHouseCooldownRemaining() + 1000)
+							end, GetTradingHouseCooldownRemaining())
 					end
-				end, GetTradingHouseCooldownRemaining() + 1000)
+				end, GetTradingHouseCooldownRemaining())
 
 		else
-			if self.db.isPlaySound then
-				PlaySound(self.db.playSound)
-			end
 			self:OnTradingHouseClosed()
+			
+			-- Execute a bogus search to clear the gui's search results visual bug
+			zo_callLater(function()
+				self.scanLabel:SetText("|c24ed45Finished Scanning!|r")
+				if self.db.isPlaySound then
+					PlaySound(self.db.playSound)
+				end
+				ExecuteTradingHouseSearch(99999999, TRADING_HOUSE_SORT_SALE_PRICE, true)
+			end, GetTradingHouseCooldownRemaining())      
 		end
 	end
 end
@@ -765,13 +789,13 @@ function PriceTracker:GetItemLink(item)
 	if not parent then return nil end
 	local parentName = parent:GetName()
 
-	if parentName == "ZO_PlayerInventoryQuestContents" then
+	if parentName == "ZO_QuestItemsListContents" then
 		return nil
 	end
 	if parentName == "ZO_StoreWindowListContents" then
 		return GetStoreItemLink(item.dataEntry.data.slotIndex, LINK_STYLE_DEFAULT)
 	end
-	if parentName == "ZO_TradingHouseItemPaneSearchResultsContents" then
+	if parentName == "ZO_TradingHouseBrowseItemsRightPaneSearchResultsContents" then
 		if item.dataEntry.data.timeRemaining > 0 then
 			return GetTradingHouseSearchResultItemLink(item.dataEntry.data.slotIndex, LINK_STYLE_DEFAULT)
 		end
